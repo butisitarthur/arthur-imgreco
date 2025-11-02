@@ -1,0 +1,150 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "arthur-imgreco"
+version = "2.0.0"
+description = "Modern, scalable image recognition server with vector similarity search"
+authors = ["Arthur Team <team@arthur.io>"]
+readme = "README.md"
+packages = [{include = "arthur_imgreco", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+# FastAPI and ASGI
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.38.0"}
+pydantic = "^2.12.3"
+pydantic-settings = "^2.11.0"
+
+# ML and Computer Vision
+# torch = "^2.5.0"  # Install separately
+# torchvision = "^0.20.0"  # Install separately
+transformers = "^4.45.0"
+timm = "^1.0.11"
+pillow = "^11.0.0"
+numpy = "^2.1.0"
+opencv-python-headless = "^4.10.0"
+
+# Vector Database and Search
+qdrant-client = "^1.12.0"
+
+# Database and ORM
+sqlmodel = "^0.0.27"
+asyncpg = "^0.30.0"
+psycopg2-binary = "^2.9.11"
+alembic = "^1.17.1"
+
+# Caching and Background Tasks
+redis = "^7.0.1"
+celery = "^5.5.3"
+
+# HTTP and Networking
+httpx = "^0.28.1"
+aiofiles = "^25.1.0"
+
+# Logging and Monitoring
+structlog = "^25.5.0"
+prometheus-client = "^0.23.1"
+
+# Utilities
+python-multipart = "^0.0.20"
+python-dotenv = "^1.2.1"
+typer = "^0.20.0"
+torch = "2.6.0"
+torchaudio = "2.6.0"
+torchvision = "0.21.0"
+
+[tool.poetry.group.dev.dependencies]
+# Testing
+pytest = "^8.4.2"
+pytest-asyncio = "^1.2.0"
+pytest-cov = "^7.0.0"
+httpx = "^0.28.1"
+
+# Code Quality
+ruff = "^0.14.3"
+mypy = "^1.18.2"
+black = "^25.9.0"
+
+# Development Tools
+ipython = "^9.6.0"
+jupyter = "^1.1.1"
+pre-commit = "^4.3.0"
+
+[tool.poetry.scripts]
+arthur-server = "arthur_imgreco.main:app"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings  
+    "F", # pyflakes
+    "I", # isort
+    "B", # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "N", # pep8-naming
+    "S", # flake8-bandit (security)
+    "T20", # flake8-print
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501", # line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "C901", # too complex
+    "S101", # use of assert
+    "T201", # print found (we use structured logging)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["S101"] # allow assert in tests
+
+[tool.black]
+line-length = 100
+target-version = ['py314']
+include = '\.pyi?$'
+preview = true
+
+[tool.mypy]
+python_version = "3.14"
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+strict_optional = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "src/arthur_imgreco/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
