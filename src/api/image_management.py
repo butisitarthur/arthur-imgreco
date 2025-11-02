@@ -3,15 +3,14 @@ Image Management API endpoints - Adding, updating, deleting images from the inde
 """
 
 import time
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status, File, Form, UploadFile
 
 from core.logging import get_logger
 from core.config import settings
 from api.models import (
-    AddImageRequest, BatchImageRequest, ImageResponse, BatchImageResponse,
-    ImageMetadata
+    AddImageRequest, BatchImageRequest, ImageResponse, BatchImageResponse
 )
 
 logger = get_logger(__name__)

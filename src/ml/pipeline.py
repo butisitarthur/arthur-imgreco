@@ -10,7 +10,6 @@ from typing import List, Optional, Union, Dict, Any
 import io
 from dataclasses import dataclass
 
-import numpy as np
 from PIL import Image
 
 from ml.clip_service import get_clip_service

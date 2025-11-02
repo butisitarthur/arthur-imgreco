@@ -3,7 +3,7 @@ Shared data models for API v1 endpoints.
 """
 
 from datetime import datetime
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, HttpUrl
 
 
@@ -127,43 +127,26 @@ class AddImageRequest(BaseModel):
     
     def model_post_init(self, __context):
         """Post-initialization to generate vector_id if needed."""
-        import uuid
+        from core.hierarchical_ids import resolve_vector_id
         
-        # If vector_id is explicitly provided, use it
-        if self.vector_id:
-            return
-            
-        # Try to auto-generate from hierarchical components  
-        if self.artist_id and self.entry_id and self.view_id:
-            # Create a hierarchical identifier
-            hierarchical_id = f"{self.artist_id}.{self.entry_id}.{self.view_id}"
-            
-            # Generate a UUID5 from the hierarchical identifier to ensure Qdrant compatibility
-            # This creates a deterministic UUID based on the hierarchical structure
-            namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')  # Standard namespace for URLs
-            self.vector_id = str(uuid.uuid5(namespace, hierarchical_id))
-            return
-            
-        # If we get here, we don't have enough information
-        raise ValueError(
-            "Either 'vector_id' must be provided, or all three of 'artist_id', 'entry_id', "
-            "and 'view_id' must be provided for auto-generation. Found: "
-            f"vector_id={self.vector_id}, artist_id={self.artist_id}, entry_id={self.entry_id}, view_id={self.view_id}"
-        )
-    
-    def get_vector_id(self) -> str:
-        """Get the final vector_id (either provided or auto-generated)."""
-        return self.vector_id
+        try:
+            final_vector_id, _ = resolve_vector_id(
+                vector_id=self.vector_id,
+                artist_id=self.artist_id,
+                entry_id=self.entry_id,
+                view_id=self.view_id
+            )
+            self.vector_id = final_vector_id
+        except ValueError as e:
+            raise ValueError(str(e)) from e
     
     def get_hierarchical_id(self) -> Optional[str]:
         """Get the hierarchical identifier if all components are available."""
-        if self.artist_id and self.entry_id and self.view_id:
-            return f"{self.artist_id}.{self.entry_id}.{self.view_id}"
+        from core.hierarchical_ids import create_hierarchical_id, validate_hierarchical_components
+        
+        if validate_hierarchical_components(self.artist_id, self.entry_id, self.view_id):
+            return create_hierarchical_id(self.artist_id, self.entry_id, self.view_id)
         return None
-    
-    def get_hierarchical_components(self) -> tuple[Optional[str], Optional[str], Optional[str]]:
-        """Get the hierarchical components if available."""
-        return self.artist_id, self.entry_id, self.view_id
 
 
 class BatchImageRequest(BaseModel):
@@ -194,3 +177,26 @@ class BatchImageResponse(BaseModel):
     successful: int
     failed: int
     total_processing_time_ms: float
+
+
+# =====================================
+# HEALTH CHECK MODELS
+# =====================================
+
+class HealthResponse(BaseModel):
+    """Health check response model."""
+
+    status: str
+    timestamp: datetime
+    version: str
+    message: str
+
+
+class DetailedHealthResponse(BaseModel):
+    """Detailed health check response model."""
+
+    status: str
+    timestamp: datetime
+    version: str
+    services: Dict[str, str]
+    message: str

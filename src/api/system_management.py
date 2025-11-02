@@ -3,7 +3,6 @@ System Management API endpoints - Index statistics, analytics, and system inform
 """
 
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status
 

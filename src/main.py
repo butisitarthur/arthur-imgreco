@@ -37,29 +37,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Startup tasks
     try:
-        # Initialize ML models
-        logger.info("Initializing ML models...")
+        # Initialize core services
+        logger.info("Initializing ML services...")
         from ml.clip_service import CLIPEmbeddingService
         from ml.vector_db import QdrantService
-        from ml.pipeline import ImageProcessingPipeline
 
-        # Initialize services
+        # Initialize CLIP service
         clip_service = CLIPEmbeddingService()
         await clip_service.load_model()
+        logger.info("CLIP model loaded successfully")
 
-        # Initialize vector database
-        logger.info("Connecting to vector database...")
+        # Initialize vector database service
+        logger.info("Initializing vector database connection...")
         qdrant_service = QdrantService()
-        # Qdrant service initializes on first use
-
-        # Initialize processing pipeline
-        logger.info("Connecting to PostgreSQL...")
-        pipeline = ImageProcessingPipeline()
+        # Note: Qdrant connection is established on first use
+        logger.info("Vector database service initialized")
 
         # Store services in app state for access from routes
         app.state.clip_service = clip_service
         app.state.qdrant_service = qdrant_service
-        app.state.pipeline = pipeline
 
         logger.info("Application startup complete")
         yield
@@ -70,7 +66,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     finally:
         # Cleanup tasks
         logger.info("Shutting down Arthur Image Recognition 2.0")
-        # Services will be cleaned up automatically by Python garbage collection
+        # Cleanup CLIP service if needed
+        if hasattr(app.state, 'clip_service') and app.state.clip_service:
+            # CLIP service cleanup is handled automatically by PyTorch
+            pass
+        # Qdrant client cleanup is handled automatically by the client
 
 
 def create_app() -> FastAPI:

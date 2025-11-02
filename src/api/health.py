@@ -2,34 +2,15 @@
 Health check endpoints
 """
 
-from fastapi import APIRouter, status
-from pydantic import BaseModel
+from fastapi import APIRouter
 from datetime import datetime
 
 from core.config import settings
 from core.logging import get_logger
+from api.models import HealthResponse, DetailedHealthResponse
 
 logger = get_logger(__name__)
 router = APIRouter()
-
-
-class HealthResponse(BaseModel):
-    """Health check response model."""
-
-    status: str
-    timestamp: datetime
-    version: str
-    message: str
-
-
-class DetailedHealthResponse(BaseModel):
-    """Detailed health check response model."""
-
-    status: str
-    timestamp: datetime
-    version: str
-    services: dict
-    message: str
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -56,26 +37,55 @@ async def detailed_health_check() -> DetailedHealthResponse:
     services = {}
     critical_failures = []
     
-    # Check Qdrant Vector Database
+    # Check Qdrant Vector DB
     try:
-        from ml.vector_db import qdrant_service
+        from core.services import get_qdrant_service
+        qdrant_service = get_qdrant_service()
         
-        await qdrant_service.connect()
+        # Basic collection check
+        collections = await qdrant_service.list_collections()
+        if collections:
+            services["vector_db"] = f"healthy ({len(collections)} collections)"
+        else:
+            services["vector_db"] = "healthy (no collections)"
+    except Exception as e:
+        services["vector_db"] = f"unhealthy: {str(e)}"
+        logger.error("Vector DB health check failed", error=str(e))
+    
+    # Check Redis Cache
+    try:
+        from core.services import get_cache_service
+        cache_service = await get_cache_service()
         
-        # Try to get collection info
-        try:
-            collection_info = await qdrant_service.client.get_collection(qdrant_service.collection_name)
-            vector_count = collection_info.vectors_count or 0
-            services["vector_db"] = f"healthy ({vector_count} vectors)"
-            logger.info("Qdrant health check passed", vectors=vector_count)
-        except (ConnectionError, TimeoutError, ValueError) as e:
-            services["vector_db"] = f"degraded (collection issue: {str(e)[:50]})"
-            logger.warning("Qdrant collection check failed", error=str(e))
-            
-    except (ConnectionError, TimeoutError, ImportError) as e:
-        services["vector_db"] = f"unhealthy ({str(e)[:50]})"
-        critical_failures.append("vector_db")
-        logger.error("Qdrant health check failed", error=str(e))
+        # Test cache with a simple operation
+        test_key = "health_check_test"
+        await cache_service.set(test_key, "test_value", ttl=1)
+        cached_value = await cache_service.get(test_key)
+        
+        if cached_value == "test_value":
+            services["cache"] = "healthy (Redis connected)"
+            # Clean up test key
+            await cache_service.delete(test_key)
+        else:
+            services["cache"] = "degraded (Redis accessible but inconsistent)"
+    except Exception as e:
+        services["cache"] = f"degraded: {str(e)}"
+        logger.warning("Cache health check failed, falling back to memory cache", error=str(e))
+    
+    # Check CLIP ML Model
+    try:
+        from core.services import get_clip_service
+        clip_service = await get_clip_service()
+        
+        # Check if model is loaded and accessible
+        if hasattr(clip_service, 'model') and clip_service.model is not None:
+            services["ml_model"] = f"healthy (CLIP {settings.clip_model_name} loaded)"
+        else:
+            services["ml_model"] = "healthy (CLIP service available)"
+        
+    except Exception as e:
+        services["ml_model"] = f"unhealthy: {str(e)}"
+        logger.error("ML model health check failed", error=str(e))
     
     # Check CLIP ML Model
     try:

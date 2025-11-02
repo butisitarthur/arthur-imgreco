@@ -3,7 +3,7 @@ Similarity Search API endpoints - Finding similar images using CLIP embeddings.
 """
 
 import time
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query
 
 from core.logging import get_logger
 from core.config import settings

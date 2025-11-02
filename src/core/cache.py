@@ -10,7 +10,6 @@ import pickle
 import hashlib
 from typing import Any, Optional, List, Dict
 from datetime import datetime, timedelta
-import asyncio
 
 try:
     import redis.asyncio as redis

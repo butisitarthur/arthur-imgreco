@@ -5,28 +5,22 @@ This module provides high-performance vector operations using Qdrant
 with connection pooling, error handling, and batch operations.
 """
 
-import asyncio
 import time
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from uuid import uuid4
 
 import numpy as np
 from core.config import settings
-from qdrant_client import QdrantClient, AsyncQdrantClient
+from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     VectorParams,
     Distance,
-    CollectionStatus,
     PointStruct,
-    SearchRequest,
     Filter,
     FieldCondition,
     MatchValue,
-    ScoredPoint,
-    CountRequest,
 )
-from qdrant_client.http.exceptions import ResponseHandlingException
 
 from core.logging import get_logger
 
