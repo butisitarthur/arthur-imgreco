@@ -9,6 +9,8 @@
 
 Arthur Image Recognition 2.0 is an AI-powered image recognition and similarity search system. Built with modern machine learning technologies, it provides semantic image understanding using CLIP embeddings and high-performance vector similarity search.
 
+<sub>Built with Claude Sonnet 4, Nov 2025</sub>
+
 <br>
 
 <details>
