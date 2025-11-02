@@ -13,6 +13,8 @@ Arthur Image Recognition 2.0 is an AI-powered image recognition and similarity s
 
 <br>
 
+[Developer guide](docs/DEVELOPER_GUIDE.md) - Feed to AI for further development tasks
+
 <details>
 <summary markdown>Table of contents</summary>
 
