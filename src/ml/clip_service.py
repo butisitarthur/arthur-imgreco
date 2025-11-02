@@ -20,8 +20,8 @@ from PIL import Image, ImageOps
 import numpy as np
 import httpx
 
-from arthur_imgreco.core.config import settings
-from arthur_imgreco.core.logging import get_logger
+from core.config import settings
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

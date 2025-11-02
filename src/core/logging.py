@@ -9,7 +9,7 @@ from typing import Any
 import structlog
 from structlog.stdlib import LoggerFactory
 
-from arthur_imgreco.core.config import settings
+from core.config import settings
 
 
 def configure_logging() -> None:

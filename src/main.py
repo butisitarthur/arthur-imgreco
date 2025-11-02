@@ -11,14 +11,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
-from arthur_imgreco.core.config import settings
-from arthur_imgreco.core.logging import (
+from core.config import settings
+from core.logging import (
     configure_logging,
     get_logger,
     log_api_request,
     log_api_response,
 )
-from arthur_imgreco.api import health, legacy, v1
+from api import health, legacy, v1
 
 
 # Configure logging
@@ -39,9 +39,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         # Initialize ML models
         logger.info("Initializing ML models...")
-        from arthur_imgreco.ml.clip_service import CLIPEmbeddingService
-        from arthur_imgreco.ml.vector_db import QdrantService
-        from arthur_imgreco.ml.pipeline import ImageProcessingPipeline
+        from ml.clip_service import CLIPEmbeddingService
+        from ml.vector_db import QdrantService
+        from ml.pipeline import ImageProcessingPipeline
 
         # Initialize services
         clip_service = CLIPEmbeddingService()
@@ -168,7 +168,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "arthur_imgreco.main:app",
+        "main:app",
         host="0.0.0.0",
         port=9000,
         reload=settings.debug,

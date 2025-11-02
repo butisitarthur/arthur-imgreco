@@ -1,7 +1,7 @@
 import asyncio
 import time
-from arthur_imgreco.ml.clip_service import CLIPEmbeddingService
-from arthur_imgreco.ml.vector_db import QdrantService
+from ml.clip_service import CLIPEmbeddingService
+from ml.vector_db import QdrantService
 
 async def test_full_system():
     print("🚀 Arthur 2.0 Full System Test")

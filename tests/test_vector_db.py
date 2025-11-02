@@ -1,7 +1,7 @@
 import asyncio
 import numpy as np
-from arthur_imgreco.ml.vector_db import QdrantService
-from arthur_imgreco.ml.clip_service import CLIPEmbeddingService
+from ml.vector_db import QdrantService
+from ml.clip_service import CLIPEmbeddingService
 
 async def test_vector_operations():
     print("🔍 Testing Vector Database Operations")

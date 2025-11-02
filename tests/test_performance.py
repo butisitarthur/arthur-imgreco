@@ -1,6 +1,6 @@
 import asyncio
 import time
-from arthur_imgreco.ml.clip_service import CLIPEmbeddingService
+from ml.clip_service import CLIPEmbeddingService
 
 async def performance_test():
     print("🚀 Arthur 2.0 Performance Test")

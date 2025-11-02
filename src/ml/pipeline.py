@@ -13,9 +13,9 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image
 
-from arthur_imgreco.ml.clip_service import get_clip_service
-from arthur_imgreco.ml.vector_db import get_qdrant_service, ImageMetadata, SearchResult
-from arthur_imgreco.core.logging import get_logger
+from ml.clip_service import get_clip_service
+from ml.vector_db import get_qdrant_service, ImageMetadata, SearchResult
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

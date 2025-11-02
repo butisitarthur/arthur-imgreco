@@ -27,8 +27,8 @@ from qdrant_client.models import (
 )
 from qdrant_client.http.exceptions import ResponseHandlingException
 
-from arthur_imgreco.core.config import settings
-from arthur_imgreco.core.logging import get_logger
+from core.config import settings
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

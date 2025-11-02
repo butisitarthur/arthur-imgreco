@@ -7,8 +7,8 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status
 
-from arthur_imgreco.core.logging import get_logger
-from arthur_imgreco.api.models import IndexStats, ArtistAnalytics
+from core.logging import get_logger
+from api.models import IndexStats, ArtistAnalytics
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -21,7 +21,7 @@ async def get_index_statistics() -> IndexStats:
     
     Returns counts, sizes, last update times, and model information.
     """
-    from arthur_imgreco.ml.vector_db import qdrant_service
+    from ml.vector_db import qdrant_service
     
     logger.info("Getting index statistics")
     

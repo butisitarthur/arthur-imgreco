@@ -8,7 +8,7 @@ version = "2.0.0"
 description = "Modern, scalable image recognition server with vector similarity search"
 authors = ["Arthur Team <team@arthur.io>"]
 readme = "README.md"
-packages = [{include = "arthur_imgreco", from = "src"}]
+packages = [{include = "api", from = "src"}, {include = "core", from = "src"}, {include = "ml", from = "src"}, {include = "main.py", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -74,7 +74,7 @@ jupyter = "^1.1.1"
 pre-commit = "^4.3.0"
 
 [tool.poetry.scripts]
-arthur-server = "arthur_imgreco.main:app"
+arthur-server = "main:app"
 
 [tool.ruff]
 target-version = "py314"
@@ -133,7 +133,7 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["src"]
-omit = ["tests/*", "src/arthur_imgreco/__init__.py"]
+omit = ["tests/*", "src/__init__.py"]
 
 [tool.coverage.report]
 exclude_lines = [

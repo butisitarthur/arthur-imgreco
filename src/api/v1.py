@@ -4,7 +4,7 @@ Modern API v1 - Main router that includes all endpoint modules.
 
 from fastapi import APIRouter
 
-from arthur_imgreco.api import image_management, similarity_search, system_management
+from api import image_management, similarity_search, system_management
 
 # Create the main v1 router
 router = APIRouter()

@@ -6,8 +6,8 @@ from fastapi import APIRouter, status
 from pydantic import BaseModel
 from datetime import datetime
 
-from arthur_imgreco.core.config import settings
-from arthur_imgreco.core.logging import get_logger
+from core.config import settings
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -58,7 +58,7 @@ async def detailed_health_check() -> DetailedHealthResponse:
     
     # Check Qdrant Vector Database
     try:
-        from arthur_imgreco.ml.vector_db import qdrant_service
+        from ml.vector_db import qdrant_service
         
         await qdrant_service.connect()
         
@@ -79,7 +79,7 @@ async def detailed_health_check() -> DetailedHealthResponse:
     
     # Check CLIP ML Model
     try:
-        from arthur_imgreco.ml.clip_service import clip_service
+        from ml.clip_service import clip_service
         
         # Check if model is loaded and accessible
         if hasattr(clip_service, 'model') and clip_service.model is not None:

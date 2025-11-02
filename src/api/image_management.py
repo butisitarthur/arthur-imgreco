@@ -7,8 +7,8 @@ from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, status, File, Form, UploadFile
 
-from arthur_imgreco.core.logging import get_logger
-from arthur_imgreco.api.models import (
+from core.logging import get_logger
+from api.models import (
     AddImageRequest, BatchImageRequest, ImageResponse, BatchImageResponse,
     ImageMetadata
 )
@@ -33,8 +33,8 @@ async def add_image(request: AddImageRequest) -> ImageResponse:
     import httpx
     from PIL import Image
     
-    from arthur_imgreco.ml.clip_service import clip_service
-    from arthur_imgreco.ml.vector_db import ImageMetadata as VectorImageMetadata, qdrant_service
+    from ml.clip_service import clip_service
+    from ml.vector_db import ImageMetadata as VectorImageMetadata, qdrant_service
     
     start_time = time.time()
     
@@ -290,8 +290,8 @@ async def upload_image_file(
     import io
     from PIL import Image
     
-    from arthur_imgreco.ml.clip_service import clip_service
-    from arthur_imgreco.ml.vector_db import ImageMetadata as VectorImageMetadata, qdrant_service
+    from ml.clip_service import clip_service
+    from ml.vector_db import ImageMetadata as VectorImageMetadata, qdrant_service
     
     start_time = time.time()
     
@@ -435,7 +435,7 @@ async def delete_image(image_id: str):
     This will remove both the vector embedding and metadata.
     Can delete by either vector_id (UUID) or image_id.
     """
-    from arthur_imgreco.ml.vector_db import qdrant_service
+    from ml.vector_db import qdrant_service
     
     logger.info("Deleting image", image_id=image_id)
     
@@ -540,7 +540,7 @@ async def get_image_info(image_id: str):
     Returns metadata, embedding info, and similarity statistics.
     Can look up by either vector_id (UUID) or image_id.
     """
-    from arthur_imgreco.ml.vector_db import qdrant_service
+    from ml.vector_db import qdrant_service
     
     logger.info("Getting image info", image_id=image_id)
     

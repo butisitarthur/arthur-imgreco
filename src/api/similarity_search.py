@@ -5,8 +5,8 @@ Similarity Search API endpoints - Finding similar images using CLIP embeddings.
 import time
 from fastapi import APIRouter, HTTPException, Query, status
 
-from arthur_imgreco.core.logging import get_logger
-from arthur_imgreco.api.models import (
+from core.logging import get_logger
+from api.models import (
     ImageSimilarityRequest, ImageSimilarityResponse, ImageSimilarityResult,
     BatchMatchRequest, BatchMatchResponse
 )
@@ -23,8 +23,8 @@ async def similarity_search(request: ImageSimilarityRequest) -> ImageSimilarityR
     Uses CLIP embeddings for semantic similarity matching.
     Supports both image URLs and base64-encoded image data.
     """
-    from arthur_imgreco.ml.clip_service import clip_service
-    from arthur_imgreco.ml.vector_db import qdrant_service
+    from ml.clip_service import clip_service
+    from ml.vector_db import qdrant_service
     
     start_time = time.time()
     
@@ -182,8 +182,8 @@ async def batch_similarity_search(request: BatchMatchRequest) -> BatchMatchRespo
 
     Optimized for processing many images at once with improved throughput.
     """
-    from arthur_imgreco.ml.clip_service import clip_service
-    from arthur_imgreco.ml.vector_db import qdrant_service
+    from ml.clip_service import clip_service
+    from ml.vector_db import qdrant_service
     
     start_time = time.time()
     
@@ -316,7 +316,7 @@ async def find_similar_by_id(
 
     Useful for finding related artworks or duplicate detection.
     """
-    from arthur_imgreco.ml.vector_db import qdrant_service
+    from ml.vector_db import qdrant_service
     
     start_time = time.time()
     
