@@ -6,6 +6,7 @@ import time
 from fastapi import APIRouter, HTTPException, Query, status
 
 from core.logging import get_logger
+from core.config import settings
 from api.models import (
     ImageSimilarityRequest, ImageSimilarityResponse, ImageSimilarityResult,
     BatchMatchRequest, BatchMatchResponse
@@ -25,8 +26,10 @@ async def similarity_search(request: ImageSimilarityRequest) -> ImageSimilarityR
     """
     from ml.clip_service import clip_service
     from ml.vector_db import qdrant_service
+    from core.cache import get_cache_service
     
     start_time = time.time()
+    cache_service = await get_cache_service()
     
     logger.info(
         "Similarity search",
@@ -128,8 +131,8 @@ async def similarity_search(request: ImageSimilarityRequest) -> ImageSimilarityR
             total_results=len(formatted_results),
             query_time_ms=query_time_ms,
             model_info={
-                "model_name": "CLIP-ViT-B/32",
-                "embedding_dimension": 512,
+                "model_name": f"CLIP-{settings.clip_model_name}",
+                "embedding_dimension": settings.embedding_dimension,
                 "index_type": "qdrant",
                 "query_method": query_method,
                 "filters_applied": {
@@ -437,8 +440,8 @@ async def find_similar_by_id(
                 query_time_ms=query_time_ms,
                 model_info={
                     "source_image_id": image_id,
-                    "model_name": "CLIP-ViT-B/32",
-                    "embedding_dimension": 512,
+                    "model_name": f"CLIP-{settings.clip_model_name}",
+                    "embedding_dimension": settings.embedding_dimension,
                     "index_type": "qdrant",
                     "similarity_threshold": similarity_threshold
                 }

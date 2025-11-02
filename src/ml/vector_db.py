@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 import numpy as np
+from core.config import settings
 from qdrant_client import QdrantClient, AsyncQdrantClient
 from qdrant_client.models import (
     VectorParams,
@@ -27,7 +28,6 @@ from qdrant_client.models import (
 )
 from qdrant_client.http.exceptions import ResponseHandlingException
 
-from core.config import settings
 from core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -42,7 +42,7 @@ class ImageMetadata:
     view_id: str
     image_url: Optional[str] = None
     upload_timestamp: Optional[float] = None
-    embedding_model: str = "CLIP-ViT-B/32"
+    embedding_model: str = f"CLIP-{settings.clip_model_name}"
 
 
 @dataclass

@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, status
 
 from core.logging import get_logger
+from core.config import settings
 from api.models import IndexStats, ArtistAnalytics
 
 logger = get_logger(__name__)
@@ -20,10 +21,24 @@ async def get_index_statistics() -> IndexStats:
     Get comprehensive statistics about the image index.
     
     Returns counts, sizes, last update times, and model information.
+    Uses 5-minute caching to reduce database load.
     """
     from ml.vector_db import qdrant_service
     
-    logger.info("Getting index statistics")
+    # Try to get cached stats first
+    try:
+        from core.cache import get_cache_service
+        cache_service = await get_cache_service()
+        cached_stats = await cache_service.get_cached_system_stats()
+        
+        if cached_stats:
+            logger.info("Returning cached index statistics")
+            return IndexStats(**cached_stats)
+    except Exception:
+        # If cache fails, continue with normal flow
+        pass
+    
+    logger.info("Computing fresh index statistics")
     
     try:
         await qdrant_service.connect()
@@ -55,7 +70,7 @@ async def get_index_statistics() -> IndexStats:
                         if 'artist_id' in point.payload and point.payload['artist_id']:
                             artist_ids.add(point.payload['artist_id'])
                         # Estimate size based on payload
-                        index_size_bytes += len(str(point.payload)) + 512 * 4  # Rough estimate: payload + vector size
+                        index_size_bytes += len(str(point.payload)) + settings.embedding_dimension * 4  # Rough estimate: payload + vector size
             
             # Convert bytes to MB
             index_size_mb = index_size_bytes / (1024 * 1024)
@@ -73,14 +88,25 @@ async def get_index_statistics() -> IndexStats:
             artist_ids = set()
             index_size_mb = 0.0
         
-        return IndexStats(
-            total_images=total_images,
-            total_artists=len(artist_ids),
-            index_size_mb=round(index_size_mb, 2),
-            last_updated=datetime.now(),
-            vector_dimension=512,  # CLIP embedding dimension
-            similarity_model="CLIP-ViT-B/32"
-        )
+        stats_data = {
+            "total_images": total_images,
+            "total_artists": len(artist_ids),
+            "index_size_mb": round(index_size_mb, 2),
+            "last_updated": datetime.now(),
+            "vector_dimension": settings.embedding_dimension,
+            "similarity_model": f"CLIP-{settings.clip_model_name}"
+        }
+        
+        # Cache the computed stats for 5 minutes
+        try:
+            from core.cache import get_cache_service
+            cache_service = await get_cache_service()
+            await cache_service.cache_system_stats(stats_data, ttl_minutes=5)
+        except Exception:
+            # If caching fails, that's ok
+            pass
+        
+        return IndexStats(**stats_data)
         
     except Exception as e:
         logger.error("Failed to get index statistics", error=str(e))
@@ -91,8 +117,8 @@ async def get_index_statistics() -> IndexStats:
             total_artists=0,
             index_size_mb=0.0,
             last_updated=datetime.now(),
-            vector_dimension=512,
-            similarity_model="CLIP-ViT-B/32"
+            vector_dimension=settings.embedding_dimension,
+            similarity_model=f"CLIP-{settings.clip_model_name}"
         )
 
 
@@ -375,8 +401,8 @@ async def get_model_info():
         
         # Query CLIP service for model details
         model_info = {
-            "clip_model": "ViT-B/32",
-            "embedding_dimension": 512,
+            "clip_model": settings.clip_model_name,
+            "embedding_dimension": settings.embedding_dimension,
             "supported_formats": ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "webp"],
             "model_device": "Unknown",
             "model_precision": "float32",
@@ -417,7 +443,7 @@ async def get_model_info():
             if collection_info and collection_info.config:
                 config = collection_info.config
                 model_info["vector_database"]["collection_name"] = qdrant_service.collection_name
-                model_info["vector_database"]["vector_size"] = config.params.vectors.size if config.params.vectors else 512
+                model_info["vector_database"]["vector_size"] = config.params.vectors.size if config.params.vectors else settings.embedding_dimension
                 model_info["vector_database"]["distance"] = config.params.vectors.distance.name if config.params.vectors and config.params.vectors.distance else "Cosine"
                 
                 # Get performance info

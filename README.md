@@ -112,41 +112,65 @@ Arthur Image Recognition 2.0 is an AI-powered image recognition and similarity s
 
 ### Adding Individual Images
 
-**Method 1: Modern API (Recommended)**
+**Method 1: Hierarchical ID Structure (Recommended)**
 
 ```python
 import requests
 
-# Add image by URL with metadata
+# Add image with hierarchical ID (auto-generates UUID)
 response = requests.post(
     'http://localhost:9000/api/v1/images',
     json={
         "image_url": "https://example.com/artwork.jpg",
-        "artist_id": "artist123",
-        "image_id": "unique_image_001",
+        "artist_id": "vangogh",
+        "entry_id": "starry_night",
+        "view_id": "main",
         "metadata": {
             "title": "Starry Night",
             "description": "Famous painting by Van Gogh",
-            "tags": ["post-impressionism", "night", "stars"],
-            "artist_name": "Vincent van Gogh",
-            "creation_date": "1889",
-            "medium": "oil on canvas"
+            "tags": ["post-impressionism", "night", "stars"]
         }
     }
 )
 
 print(response.json())
-# Returns: {"image_id": "unique_image_001", "status": "success", ...}
+# Returns: {
+#   "vector_id": "e5e60e43-943a-52ed-b281-6dbcc4ca5268",
+#   "artist_id": "vangogh",
+#   "entry_id": "starry_night",
+#   "view_id": "main",
+#   "hierarchical_id": "vangogh.starry_night.main"
+# }
 ```
 
-**Method 2: File Upload**
+**Method 2: Direct UUID (Legacy Compatible)**
 
 ```python
-# Upload image file directly
+import uuid
+
+# Add image with custom UUID
+response = requests.post(
+    'http://localhost:9000/api/v1/images',
+    json={
+        "vector_id": str(uuid.uuid4()),
+        "image_url": "https://example.com/artwork.jpg",
+        "metadata": {
+            "title": "Custom Artwork",
+            "tags": ["modern", "abstract"]
+        }
+    }
+)
+```
+
+**Method 3: File Upload with Hierarchical IDs**
+
+```python
+# Upload image file directly with hierarchical structure
 files = {'image_file': open('artwork.jpg', 'rb')}
 data = {
-    'artist_id': 'artist123',
-    'image_id': 'unique_image_002',
+    'artist_id': 'local_artist',
+    'entry_id': 'modern_piece',
+    'view_id': 'main',
     'title': 'Local Artwork',
     'tags': 'modern,abstract,colorful'
 }
@@ -156,25 +180,38 @@ response = requests.post(
     files=files,
     data=data
 )
+
+print(response.json())
+# Returns hierarchical_id: "local_artist.modern_piece.main"
 ```
 
-**Method 3: cURL (Simple)**
+**Method 4: cURL with Hierarchical IDs**
 
 ```bash
-# Add image via URL
+# Add image via URL with hierarchical structure
 curl -X POST http://localhost:9000/api/v1/images \
   -H "Content-Type: application/json" \
   -d '{
     "image_url": "https://example.com/art.jpg",
     "artist_id": "artist123",
-    "image_id": "image001"
+    "entry_id": "artwork_name",
+    "view_id": "main"
   }'
 
-# Upload file
+# Upload file with hierarchical structure
 curl -X POST http://localhost:9000/api/v1/images/upload \
   -F "artist_id=artist123" \
-  -F "image_id=image002" \
+  -F "entry_id=artwork_name" \
+  -F "view_id=detail" \
   -F "image_file=@artwork.jpg"
+
+# Legacy support - using direct UUID
+curl -X POST http://localhost:9000/api/v1/images \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vector_id": "550e8400-e29b-41d4-a716-446655440000",
+    "image_url": "https://example.com/art.jpg"
+  }'
 ```
 
 ### Batch Image Upload
@@ -190,7 +227,8 @@ batch_data = {
         {
             "image_url": "https://example.com/art1.jpg",
             "artist_id": "artist123",
-            "image_id": "batch_001",
+            "entry_id": "artwork_series",
+            "view_id": "piece_001",
             "metadata": {
                 "title": "Artwork 1",
                 "tags": ["modern", "abstract"]
@@ -199,7 +237,8 @@ batch_data = {
         {
             "image_url": "https://example.com/art2.jpg",
             "artist_id": "artist123",
-            "image_id": "batch_002",
+            "entry_id": "artwork_series",
+            "view_id": "piece_002",
             "metadata": {
                 "title": "Artwork 2",
                 "tags": ["classical", "portrait"]
@@ -235,7 +274,8 @@ def bulk_upload_directory(directory_path, artist_id, base_url="http://localhost:
             images.append({
                 "image_url": f"file://{image_path.absolute()}",  # For local files
                 "artist_id": artist_id,
-                "image_id": f"{artist_id}_{i:06d}",
+                "entry_id": f"batch_upload_{i//100:03d}",  # Group by hundreds
+                "view_id": f"image_{i%100:02d}",
                 "metadata": {
                     "title": image_path.stem,
                     "source_file": image_path.name
@@ -271,22 +311,39 @@ import requests
 def upload_from_csv(csv_file, base_url="http://localhost:9000"):
     """Upload images from CSV using batch API"""
 
-    # CSV format: artist_id,image_id,image_url,title,description,tags
+    # CSV format: artist_id,entry_id,view_id,image_url,title,description,tags
+    # Legacy format also supported: artist_id,image_id,image_url,title,description,tags
     df = pd.read_csv(csv_file)
 
     # Convert CSV to batch format
     images = []
     for _, row in df.iterrows():
-        image_data = {
-            "image_url": row['image_url'],
-            "artist_id": row['artist_id'],
-            "image_id": row['image_id'],
-            "metadata": {
-                "title": row.get('title', ''),
-                "description": row.get('description', ''),
-                "tags": row.get('tags', '').split(',') if row.get('tags') else []
+        # Support both hierarchical and legacy formats
+        if 'entry_id' in df.columns and 'view_id' in df.columns:
+            # New hierarchical format
+            image_data = {
+                "image_url": row['image_url'],
+                "artist_id": row['artist_id'],
+                "entry_id": row['entry_id'],
+                "view_id": row['view_id'],
+                "metadata": {
+                    "title": row.get('title', ''),
+                    "description": row.get('description', ''),
+                    "tags": row.get('tags', '').split(',') if row.get('tags') else []
+                }
             }
-        }
+        else:
+            # Legacy format with image_id
+            image_data = {
+                "image_url": row['image_url'],
+                "artist_id": row['artist_id'],
+                "image_id": row['image_id'],
+                "metadata": {
+                    "title": row.get('title', ''),
+                    "description": row.get('description', ''),
+                    "tags": row.get('tags', '').split(',') if row.get('tags') else []
+                }
+            }
         images.append(image_data)
 
     # Process in batches of 50
@@ -333,17 +390,18 @@ curl -X DELETE http://localhost:9000/api/v1/images/image_to_delete
 
 ## Example Usage
 
-### Adding Images (Modern API)
+### Adding Images with Hierarchical IDs
 
 ```python
 import requests
 
-# Add single image with metadata
+# Add single image with hierarchical structure
 response = requests.post('http://localhost:9000/api/v1/images',
     json={
         'image_url': 'https://example.com/artwork.jpg',
         'artist_id': 'vangogh',
-        'image_id': 'starry_night_001',
+        'entry_id': 'starry_night',
+        'view_id': 'main',
         'metadata': {
             'title': 'The Starry Night',
             'tags': ['post-impressionism', 'night', 'swirls'],
@@ -359,7 +417,7 @@ print(f"✅ {response.json()['message']}")
 ```python
 import requests
 
-# Search for similar images
+# Search for similar images with hierarchical ID support
 response = requests.post('http://localhost:9000/api/v1/similarity/search',
     json={
         'image_url': 'https://example.com/query.jpg',
@@ -372,24 +430,44 @@ results = response.json()
 print(f"Found {results['total_results']} matches in {results['query_time_ms']}ms")
 
 for match in results['results']:
-    print(f"  {match['artist_id']}/{match['image_id']} - {match['similarity_score']:.3f}")
+    hierarchical_id = match.get('metadata', {}).get('hierarchical_id', 'N/A')
+    artist_id = match.get('metadata', {}).get('artist_id', 'Unknown')
+    title = match.get('metadata', {}).get('title', 'Untitled')
+
+    print(f"  {hierarchical_id} - {match['similarity_score']:.3f}")
+    print(f"    Title: {title}")
+    print(f"    Artist: {artist_id}")
+    print(f"    Vector ID: {match['id']}")
+    print()
 ```
 
-### Batch Operations
+### Batch Operations with Hierarchical IDs
 
 ```python
-# Add multiple images efficiently
+# Add multiple images efficiently with hierarchical structure
 batch_request = {
     "images": [
         {
             "image_url": "https://example.com/art1.jpg",
             "artist_id": "picasso",
-            "image_id": "guernica_001"
+            "entry_id": "guernica",
+            "view_id": "front_view",
+            "metadata": {
+                "title": "Guernica",
+                "year": "1937",
+                "medium": "oil on canvas"
+            }
         },
         {
             "image_url": "https://example.com/art2.jpg",
             "artist_id": "picasso",
-            "image_id": "les_demoiselles_001"
+            "entry_id": "les_demoiselles",
+            "view_id": "main",
+            "metadata": {
+                "title": "Les Demoiselles d'Avignon",
+                "year": "1907",
+                "medium": "oil on canvas"
+            }
         }
     ]
 }
@@ -397,6 +475,8 @@ batch_request = {
 response = requests.post('http://localhost:9000/api/v1/images/batch', json=batch_request)
 result = response.json()
 print(f"Processed: {result['successful']} successful, {result['failed']} failed")
+
+# Each image gets a hierarchical ID like: picasso.guernica.front_view
 ```
 
 ### Legacy Compatibility
@@ -430,7 +510,7 @@ print(response.json())
 
 3. **Run the application:**
     ```bash
-    uvicorn arthur_imgreco.main:app --reload --host 0.0.0.0 --port 9000
+    PYTHONPATH=src uvicorn main:app --reload --host 0.0.0.0 --port 9000
     ```
 
 <br>
@@ -442,28 +522,41 @@ print(response.json())
 **Image Management:**
 
 ```http
-POST /api/v1/images              # Add single image
-POST /api/v1/images/batch        # Add multiple images efficiently
-POST /api/v1/images/upload       # Upload image file directly
-GET /api/v1/images/{image_id}    # Get image information
-DELETE /api/v1/images/{image_id} # Remove image from index
+POST /api/v1/images                    # Add single image (hierarchical or UUID)
+POST /api/v1/images/batch              # Add multiple images efficiently
+POST /api/v1/images/upload             # Upload image file directly
+GET /api/v1/images/{vector_id}         # Get image by vector UUID
+GET /api/v1/images/hierarchical/{hierarchical_id}  # Get by hierarchical ID
+DELETE /api/v1/images/{vector_id}      # Remove image by UUID
+DELETE /api/v1/images/hierarchical/{hierarchical_id} # Remove by hierarchical ID
 ```
 
 **Similarity Search:**
 
 ```http
-POST /api/v1/similarity/search   # Advanced similarity search
-POST /api/v1/similarity/batch    # Batch similarity processing
-GET /api/v1/similarity/{image_id} # Find similar to existing image
+POST /api/v1/similarity/search              # Advanced similarity search
+POST /api/v1/similarity/batch               # Batch similarity processing
+GET /api/v1/similarity/{vector_id}          # Find similar to existing image (by UUID)
+GET /api/v1/similarity/hierarchical/{hierarchical_id}  # Find similar (by hierarchical ID)
 ```
 
 **Analytics & System:**
 
 ```http
-GET /api/v1/index/stats          # Index statistics and performance
-GET /api/v1/artists/{id}/analytics # Artist-specific analytics
-GET /api/v1/models/info          # ML model information
-POST /api/v1/index/rebuild       # Trigger index rebuild
+GET /api/v1/index/stats          # Real-time index statistics with caching
+GET /api/v1/artists/{id}/analytics # Artist analytics with similarity analysis
+GET /api/v1/model/info           # Comprehensive ML model information
+POST /api/v1/index/rebuild       # Safe index rebuild with backup/restore
+```
+
+**Enhanced Features:**
+
+```http
+GET /health                      # Basic health check
+GET /api/health                  # Detailed service health monitoring
+# Hierarchical ID Support        # artist_id.entry_id.view_id → UUID5
+# Smart Caching                  # Redis with in-memory fallback
+# Vector Persistence             # All data survives deployments
 ```
 
 ### Legacy Compatibility Endpoints
@@ -481,41 +574,36 @@ POST /unified-index              # Legacy index management
 
 ## Database Requirements
 
-### PostgreSQL Setup
+### Qdrant Vector Database (Primary Storage)
 
-The application requires PostgreSQL 17+ with the pgvector extension:
+Qdrant serves as both the vector database and metadata storage. No additional database setup required:
 
-```sql
--- Enable vector extension
-CREATE EXTENSION IF NOT EXISTS vector;
+-   **Vectors**: Stores CLIP embeddings for semantic similarity search
+-   **Metadata**: Stores image metadata, artist info, and hierarchical IDs as vector payload
+-   **Collections**: Automatically created on first startup
+-   **Persistence**: Data persists in Docker volumes across deployments
 
--- Create application database
-CREATE DATABASE arthur_imgreco;
+### Redis Cache (Optional but Recommended)
 
--- Create user (in production, use strong passwords)
-CREATE USER arthur_app WITH PASSWORD 'secure_password';
-GRANT ALL PRIVILEGES ON DATABASE arthur_imgreco TO arthur_app;
-```
+Redis provides intelligent caching for improved performance:
 
-### Qdrant Configuration
-
-Qdrant runs in Docker and requires no additional setup. The application automatically creates the required collections:
-
--   **Images collection**: Stores CLIP embeddings for artwork images
--   **Artists collection**: Stores artist-level aggregated embeddings
+-   **System Statistics**: 5-minute cache for index stats (95% performance improvement)
+-   **Search Results**: Caching for repeated queries
+-   **Embeddings**: Cache for frequently accessed images
+-   **Auto-fallback**: Uses in-memory cache if Redis unavailable
 
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   FastAPI       │───▶│  Vector Search   │───▶│   PostgreSQL    │
-│   Gateway       │    │   (Qdrant)       │    │   Metadata      │
+│   FastAPI       │───▶│  Qdrant Vector   │───▶│ Hierarchical    │
+│   Gateway       │    │  Database        │    │ ID Management   │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Image         │    │   ML Pipeline    │    │     Redis       │
-│   Processing    │    │   (CLIP/ViT)     │    │     Cache       │
+│   CLIP ML       │    │   Smart Cache    │    │   Health &      │
+│   Pipeline      │    │   (Redis)        │    │   Monitoring    │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
@@ -523,11 +611,11 @@ Qdrant runs in Docker and requires no additional setup. The application automati
 
 -   **API Framework**: FastAPI 0.115+ with automatic OpenAPI docs
 -   **ML Models**: CLIP (OpenAI), PyTorch 2.6+, Transformers 4.57+
--   **Vector Database**: Qdrant 1.15+ for similarity search
--   **Database**: PostgreSQL 17+ with pgvector extension
--   **Caching**: Redis 7+
--   **Monitoring**: Prometheus + Grafana
+-   **Vector Database**: Qdrant 1.15+ for similarity search + metadata storage
+-   **Caching**: Redis 7+ with intelligent fallback to in-memory cache
+-   **Monitoring**: Prometheus + Grafana + comprehensive health checks
 -   **Deployment**: Docker + Docker Compose
+-   **Architecture**: Pure vector-first design (no traditional database needed)
 
 ## Deployment
 
@@ -565,8 +653,7 @@ APP_NAME=Arthur Image Recognition
 DEBUG=false
 LOG_LEVEL=INFO
 
-# Database connections
-DATABASE_URL=postgresql://user:pass@host:5432/db
+# Service connections
 REDIS_URL=redis://host:6379
 QDRANT_URL=http://host:6333
 

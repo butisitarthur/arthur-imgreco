@@ -21,10 +21,7 @@ class Settings(BaseSettings):
     # API
     api_v1_str: str = Field(default="/api/v1", env="API_V1_STR")
     cors_origins: List[str] = Field(default=["*"], env="CORS_ORIGINS")
-    max_upload_size: int = Field(default=100 * 1024 * 1024, env="MAX_UPLOAD_SIZE")  # 100MB
-
-    # Database
-    database_url: str = Field(env="DATABASE_URL")
+    # max_upload_size: int = Field(default=100 * 1024 * 1024, env="MAX_UPLOAD_SIZE")  # 100MB - Not implemented yet
 
     # Redis
     redis_url: str = Field(env="REDIS_URL")
@@ -40,16 +37,13 @@ class Settings(BaseSettings):
     # Performance
     max_workers: int = Field(default=4, env="MAX_WORKERS")
     batch_size: int = Field(default=32, env="BATCH_SIZE")
-    index_build_concurrency: int = Field(default=2, env="INDEX_BUILD_CONCURRENCY")
+    # index_build_concurrency: int = Field(default=2, env="INDEX_BUILD_CONCURRENCY")  # Not implemented yet
 
-    # Security
-    secret_key: str = Field(env="SECRET_KEY")
-    algorithm: str = Field(default="HS256", env="ALGORITHM")
-    access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
-
-    # Celery
-    celery_broker_url: str = Field(env="CELERY_BROKER_URL")
-    celery_result_backend: str = Field(env="CELERY_RESULT_BACKEND")
+    # Note: JWT/Authentication variables removed - no auth system implemented yet
+    # When adding authentication, uncomment and implement:
+    # secret_key: str = Field(env="SECRET_KEY")
+    # algorithm: str = Field(default="HS256", env="ALGORITHM") 
+    # access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
 
     @field_validator("cors_origins", mode="before")
     @classmethod

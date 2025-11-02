@@ -83,7 +83,7 @@ async def detailed_health_check() -> DetailedHealthResponse:
         
         # Check if model is loaded and accessible
         if hasattr(clip_service, 'model') and clip_service.model is not None:
-            services["ml_model"] = "healthy (CLIP ViT-B/32 loaded)"
+            services["ml_model"] = f"healthy (CLIP {settings.clip_model_name} loaded)"
         else:
             # Check if clip_service is accessible (this will load model if needed)
             services["ml_model"] = "healthy (CLIP service available)"
@@ -95,11 +95,32 @@ async def detailed_health_check() -> DetailedHealthResponse:
         critical_failures.append("ml_model")
         logger.error("CLIP model health check failed", error=str(e))
     
-    # Check Redis Cache (if available)
-    services["cache"] = "not_configured (optional service)"
+    # Check Cache Service
+    try:
+        from core.cache import get_cache_service
+        
+        cache_service = await get_cache_service()
+        cache_health = await cache_service.health_check()
+        
+        cache_status = cache_health.get("status", "unknown")
+        backend = cache_health.get("backend", "unknown")
+        
+        if cache_status == "healthy":
+            services["cache"] = f"healthy ({backend} backend)"
+        elif cache_status == "degraded":
+            services["cache"] = f"degraded ({backend} backend)"
+        else:
+            services["cache"] = f"unhealthy ({backend} backend)"
+            
+        logger.info("Cache service checked", status=cache_status, backend=backend)
+        
+    except (ImportError, ConnectionError, RuntimeError) as e:
+        services["cache"] = f"not_available ({str(e)[:30]})"
+        logger.warning("Cache service check failed", error=str(e))
     
-    # Check PostgreSQL Database (not used yet)
-    services["database"] = "not_implemented (using vector storage only)"
+    # Database architecture note: This system uses Qdrant as the primary database
+    # All metadata is stored as vector payload, no separate database needed
+    services["metadata_storage"] = "healthy (integrated with vector_db)"
     
     # Check system resources
     try:

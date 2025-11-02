@@ -8,6 +8,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, File, Form, UploadFile
 
 from core.logging import get_logger
+from core.config import settings
 from api.models import (
     AddImageRequest, BatchImageRequest, ImageResponse, BatchImageResponse,
     ImageMetadata
@@ -111,7 +112,7 @@ async def add_image(request: AddImageRequest) -> ImageResponse:
                 view_id=view_id or "main",
                 image_url=str(request.image_url),
                 upload_timestamp=time.time(),
-                embedding_model="CLIP-ViT-B/32"
+                embedding_model=f"CLIP-{settings.clip_model_name}"
             )
             
             # Use the final vector_id (either provided or auto-generated)
@@ -359,7 +360,7 @@ async def upload_image_file(
                 view_id="default",
                 image_url=f"file://{imgFile.filename}",  # Use file:// scheme for uploaded files
                 upload_timestamp=time.time(),
-                embedding_model="CLIP-ViT-B/32"
+                embedding_model=f"CLIP-{settings.clip_model_name}"
             )
             
             # Use the provided UUID for the vector ID

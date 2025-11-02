@@ -21,8 +21,10 @@ Arthur 2.0 is a complete rewrite of an image recognition system, replacing slow 
 ### **Core Technology Stack**
 
 ```
-FastAPI (0.115+) → CLIP (PyTorch 2.6+) → Qdrant Vector DB → PostgreSQL + Redis
+FastAPI (0.115+) → CLIP (PyTorch 2.6+) → Qdrant Vector DB (Dual Role) → Redis Cache
 ```
+
+**Key Architecture Decision**: Pure vector-first design with Qdrant serving both as vector database and metadata storage, eliminating the need for traditional databases like PostgreSQL.
 
 ---
 
@@ -31,39 +33,92 @@ FastAPI (0.115+) → CLIP (PyTorch 2.6+) → Qdrant Vector DB → PostgreSQL + R
 ### **Request Flow**
 
 ```
-HTTP Request → FastAPI Router → CLIP Service → Vector Search → Response
-                     ↓              ↓             ↓
-                 Validation    GPU Processing   Similarity
-                 Middleware    (Apple Silicon)   Search
+HTTP Request → FastAPI Router → CLIP Service → Qdrant Vector DB → Response
+                     ↓              ↓              ↓
+                 Validation    GPU Processing   Vector Search
+                 Middleware    (Apple Silicon)   + Metadata
+                                                   ↓
+                                              Redis Cache
+                                              (Optional)
 ```
 
 ### **Core Services**
 
-#### **1. FastAPI Application (`src/arthur_imgreco/main.py`)**
+#### **1. FastAPI Application (`src/main.py`)**
 
 -   **Purpose**: HTTP API gateway and request orchestration
 -   **Key Features**: Async/await, automatic docs, request validation
 -   **Startup Sequence**: CLIP model loading → Vector DB connection → Ready
 
-#### **2. CLIP Service (`src/arthur_imgreco/ml/clip_service.py`)**
+#### **2. CLIP Service (`src/ml/clip_service.py`)**
 
 -   **Purpose**: Convert images to semantic embeddings
 -   **Model**: OpenAI CLIP-ViT-B/32 (512-dimensional embeddings)
 -   **Optimization**: Apple Silicon GPU (MPS), torch.compile, caching
 -   **Performance**: ~1.5s per image on Apple Silicon
 
-#### **3. Vector Database (`src/arthur_imgreco/ml/vector_db.py`)**
+#### **3. Qdrant Vector Database (`src/services/qdrant_service.py`)**
 
--   **Purpose**: High-speed similarity search across millions of embeddings
+-   **Purpose**: High-speed similarity search + metadata storage (dual role)
 -   **Technology**: Qdrant (Rust-based, production-grade)
--   **Operations**: Store vectors, similarity search, collection management
+-   **Operations**: Store vectors, similarity search, metadata storage, hierarchical IDs
 
 #### **4. API Layer Structure**
 
 ```
-/health          - Health checks (src/arthur_imgreco/api/health.py)
-/match           - Legacy compatibility (src/arthur_imgreco/api/legacy.py)
-/api/v1/*        - Modern API (src/arthur_imgreco/api/v1.py)
+/health          - Health checks (src/api/health.py)
+/match           - Legacy compatibility (src/api/legacy.py)
+/api/v1/*        - Modern API with hierarchical IDs (src/api/v1/)
+/api/v1/system/* - System management endpoints (src/api/system_management.py)
+```
+
+#### **5. Hierarchical ID System**
+
+Arthur 2.0 introduces a powerful hierarchical ID system that provides both structure and deterministic UUID generation:
+
+**Structure**: `artist_id.entry_id.view_id` → UUID5 Hash
+
+**Examples**:
+
+-   `vangogh.starry_night.main` → `e5e60e43-943a-52ed-b281-6dbcc4ca5268`
+-   `picasso.guernica.front_view` → deterministic UUID
+-   `monet.water_lilies.detail_01` → deterministic UUID
+
+**Key Benefits**:
+
+-   **Deterministic**: Same hierarchical ID always produces same UUID
+-   **Structured**: Logical organization by artist/artwork/view
+-   **Searchable**: Can query by any level of hierarchy
+-   **Backwards Compatible**: Supports both UUID and hierarchical approaches
+
+**Implementation** (`src/core/hierarchical_ids.py`):
+
+```python
+import uuid
+from typing import Optional
+
+def generate_vector_id(artist_id: str, entry_id: str, view_id: str) -> str:
+    """Generate deterministic UUID5 from hierarchical components"""
+    hierarchical_id = f"{artist_id}.{entry_id}.{view_id}"
+    namespace = uuid.UUID("12345678-1234-5678-1234-123456789012")
+    return str(uuid.uuid5(namespace, hierarchical_id))
+```
+
+**Usage in API**:
+
+```python
+# New hierarchical approach (recommended)
+{
+    "artist_id": "vangogh",
+    "entry_id": "starry_night",
+    "view_id": "main"
+    # UUID auto-generated: e5e60e43-943a-52ed-b281-6dbcc4ca5268
+}
+
+# Legacy UUID approach (still supported)
+{
+    "vector_id": "550e8400-e29b-41d4-a716-446655440000"
+}
 ```
 
 ---
@@ -90,24 +145,25 @@ pyenv local 3.12.0
 # 2. Install dependencies
 poetry install
 
-# 3. Start services
-docker compose up -d qdrant postgres redis
+# 3. Start services (streamlined)
+docker compose up -d qdrant redis
 
 # 4. Run application
-poetry run uvicorn arthur_imgreco.main:app --host 0.0.0.0 --port 9000
+PYTHONPATH=src poetry run uvicorn main:app --host 0.0.0.0 --port 9000
 ```
 
-### **Environment Variables**
+### **Environment Variables (Simplified)**
 
 ```bash
 # Copy and customize
 cp .env.example .env
 
-# Key settings
+# Essential settings
 CLIP_MODEL_NAME=openai/clip-vit-base-patch32
 QDRANT_URL=http://localhost:6333
-DATABASE_URL=postgresql://arthur:password@localhost:5432/arthur_imgreco
 REDIS_URL=redis://localhost:6379/0
+
+# Note: DATABASE_URL removed - Qdrant handles both vectors and metadata
 ```
 
 ---
@@ -235,12 +291,11 @@ response = requests.post('http://localhost:9000/api/v1/similarity/search',
 ### **Docker Compose Services**
 
 ```yaml
-# Full production stack
+# Streamlined production stack (vector-first architecture)
 services:
     arthur-imgreco: # Main FastAPI application
-    postgres: # Metadata storage (PostgreSQL 17 + pgvector)
-    qdrant: # Vector database (similarity search)
-    redis: # Caching and session storage
+    qdrant: # Vector database + metadata storage (dual role)
+    redis: # Intelligent caching with fallback
     nginx: # Load balancer / reverse proxy
     prometheus: # Metrics collection
     grafana: # Monitoring dashboards
@@ -250,7 +305,7 @@ services:
 
 ```bash
 # Development (minimal services)
-docker compose up -d qdrant postgres redis
+docker compose up -d qdrant redis
 
 # Production (full stack)
 docker compose up -d
@@ -282,7 +337,7 @@ docker compose logs -f arthur-imgreco
 
 ```python
 # Add to appropriate router
-# src/arthur_imgreco/api/v1.py (modern) or legacy.py (compatibility)
+# src/api/v1/ (modern with hierarchical IDs) or legacy.py (compatibility)
 
 @router.post("/new-endpoint")
 async def new_feature(request: RequestModel) -> ResponseModel:
@@ -292,7 +347,7 @@ async def new_feature(request: RequestModel) -> ResponseModel:
 #### **2. ML Pipeline Extensions**
 
 ```python
-# Extend services in src/arthur_imgreco/ml/
+# Extend services in src/ml/ or src/services/
 class NewMLService:
     async def process(self, input_data):
         # Follow async pattern
@@ -322,7 +377,7 @@ ruff check src/ tests/ --fix
 mypy src/
 
 # Testing
-pytest tests/ --cov=arthur_imgreco
+pytest tests/ --cov=src
 ```
 
 ---
@@ -379,7 +434,7 @@ export LOG_LEVEL=DEBUG
 export DEBUG=true
 
 # Run with logging
-poetry run uvicorn arthur_imgreco.main:app --log-level debug
+PYTHONPATH=src poetry run uvicorn main:app --log-level debug
 ```
 
 ---
@@ -411,7 +466,7 @@ Concurrent Users:  Tested up to 10 simultaneous
 ### **Critical Files**
 
 ```
-src/arthur_imgreco/
+src/
 ├── main.py                  # Application entry point + lifespan management
 ├── api/
 │   ├── health.py           # Health check endpoints
@@ -501,7 +556,7 @@ ai-result.md              # Implementation summary
 
 ```bash
 # Start development
-poetry run uvicorn arthur_imgreco.main:app --reload --host 0.0.0.0 --port 9000
+PYTHONPATH=src poetry run uvicorn main:app --reload --host 0.0.0.0 --port 9000
 
 # Run tests
 poetry run python test_full_system.py
@@ -558,7 +613,7 @@ docker compose exec arthur-imgreco bash
 
 1. Health check: `curl http://localhost:9000/health`
 2. Check model loading: Look for CLIP loading success in logs
-3. Verify services: Ensure Qdrant/PostgreSQL/Redis are running
+3. Verify services: Ensure Qdrant/Redis are running (PostgreSQL eliminated)
 4. Review error logs: Enable DEBUG logging for details
 
 ---
