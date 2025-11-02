@@ -18,7 +18,7 @@ from core.logging import (
     log_api_request,
     log_api_response,
 )
-from api import health, legacy, v1
+from api import health, v1
 
 
 # Configure logging
@@ -132,7 +132,6 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(health.router, tags=["Health"])
-    app.include_router(legacy.router, tags=["Legacy API"])
     app.include_router(v1.router, prefix=settings.api_v1_str, tags=["API v1"])
 
     # Metrics endpoint
