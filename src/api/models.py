@@ -3,7 +3,7 @@ Shared data models for API v1 endpoints.
 """
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from pydantic import BaseModel, Field, HttpUrl
 
 
@@ -139,6 +139,14 @@ class AddImageRequest(BaseModel):
             self.vector_id = final_vector_id
         except ValueError as e:
             raise ValueError(str(e)) from e
+    
+    def get_vector_id(self) -> str:
+        """Get the final vector_id (either provided or auto-generated)."""
+        return self.vector_id
+    
+    def get_hierarchical_components(self) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """Get the hierarchical components if available."""
+        return self.artist_id, self.entry_id, self.view_id
     
     def get_hierarchical_id(self) -> Optional[str]:
         """Get the hierarchical identifier if all components are available."""

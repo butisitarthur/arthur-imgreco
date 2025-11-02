@@ -21,6 +21,16 @@ def configure_logging() -> None:
         stream=sys.stdout,
         level=getattr(stdlib_logging, settings.log_level.upper()),
     )
+    
+    # Suppress verbose HTTP client logging
+    stdlib_logging.getLogger("httpx").setLevel(stdlib_logging.WARNING)
+    stdlib_logging.getLogger("httpcore").setLevel(stdlib_logging.WARNING)
+    stdlib_logging.getLogger("httpcore.connection").setLevel(stdlib_logging.WARNING)
+    stdlib_logging.getLogger("httpcore.http11").setLevel(stdlib_logging.WARNING)
+    
+    # Suppress other verbose loggers
+    stdlib_logging.getLogger("urllib3").setLevel(stdlib_logging.WARNING)
+    stdlib_logging.getLogger("requests").setLevel(stdlib_logging.WARNING)
 
     # Configure structlog
     structlog.configure(

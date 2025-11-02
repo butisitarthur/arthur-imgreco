@@ -40,52 +40,58 @@ async def get_index_statistics() -> IndexStats:
     logger.info("Computing fresh index statistics")
     
     try:
-        await qdrant_service.connect()
+        # Use the QdrantService method to get stats
+        stats = await qdrant_service.get_collection_stats()
         
-        # Get collection info from Qdrant
-        await qdrant_service.connect()
-        
-        # Use the client directly to get collection info
-        try:
-            collection_info = await qdrant_service.client.get_collection(qdrant_service.collection_name)
-            total_images = collection_info.vectors_count or 0
+        if "error" in stats:
+            logger.warning("Error getting collection stats", error=stats["error"])
+            total_images = 0
+            artist_ids = set()
+            index_size_mb = 0.0
+        else:
+            # Use vectors_count or fall back to points_count if vectors_count is None
+            vectors_count = stats.get("vectors_count")
+            points_count = stats.get("points_count", 0) or 0
+            total_images = vectors_count if vectors_count is not None else points_count
             
             # Calculate actual artist count by scrolling through all points
             artist_ids = set()
-            index_size_bytes = 0
+            index_size_bytes = stats.get("disk_data_size", 0) or 0
             
             if total_images > 0:
-                # Scroll through all points to get unique artists and calculate size
-                scroll_result = await qdrant_service.client.scroll(
-                    collection_name=qdrant_service.collection_name,
-                    limit=10000,  # Get all points in batches
-                    with_payload=True,
-                    with_vectors=False  # Don't need vectors, just payload
-                )
-                
-                for point in scroll_result[0]:  # scroll_result is (points, next_page_offset)
-                    if point.payload:
-                        # Extract artist_id from payload
-                        if 'artist_id' in point.payload and point.payload['artist_id']:
-                            artist_ids.add(point.payload['artist_id'])
-                        # Estimate size based on payload
-                        index_size_bytes += len(str(point.payload)) + settings.embedding_dimension * 4  # Rough estimate: payload + vector size
+                try:
+                    # Scroll through all points to get unique artists
+                    scroll_result = await qdrant_service.client.scroll(
+                        collection_name=qdrant_service.collection_name,
+                        limit=10000,  # Get all points in batches
+                        with_payload=True,
+                        with_vectors=False  # Don't need vectors, just payload
+                    )
+                    
+                    for point in scroll_result[0]:  # scroll_result is (points, next_page_offset)
+                        if point.payload:
+                            # Extract artist_id from payload
+                            if 'artist_id' in point.payload and point.payload['artist_id']:
+                                artist_ids.add(point.payload['artist_id'])
+                    
+                    logger.debug(
+                        "Scrolled collection for artist count",
+                        total_points=len(scroll_result[0]),
+                        unique_artists=len(artist_ids)
+                    )
+                except Exception as scroll_error:
+                    logger.warning("Failed to scroll collection for artist count", error=str(scroll_error))
             
             # Convert bytes to MB
-            index_size_mb = index_size_bytes / (1024 * 1024)
+            index_size_mb = index_size_bytes / (1024 * 1024) if index_size_bytes > 0 else 0.0
             
             logger.info(
                 "Index statistics retrieved",
                 total_vectors=total_images,
                 total_artists=len(artist_ids),
                 index_size_mb=round(index_size_mb, 2),
-                collection_status=collection_info.status
+                collection_status=stats.get("status", "unknown")
             )
-        except Exception as e:
-            logger.warning("Could not get precise collection info", error=str(e))
-            total_images = 0
-            artist_ids = set()
-            index_size_mb = 0.0
         
         stats_data = {
             "total_images": total_images,
