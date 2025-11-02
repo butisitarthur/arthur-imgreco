@@ -67,7 +67,7 @@ The system has been proven to work:
 
 1. **✅ CLIP Model Loading**: Successfully loaded OpenAI CLIP model
 2. **✅ GPU Acceleration**: Apple Silicon MPS backend active
-3. **✅ Server Startup**: FastAPI running on port 8000
+3. **✅ Server Startup**: FastAPI running on port 9000
 4. **✅ API Responses**: Confirmed 200 responses to requests
 5. **✅ Load Performance**: 44s first load, ~3s subsequent loads
 
@@ -76,7 +76,7 @@ The system has been proven to work:
 ```bash
 ✅ CLIP model loaded successfully [device=mps embedding_dim=512 load_time=3.16s]
 ✅ Application startup complete
-✅ INFO: Uvicorn running on http://0.0.0.0:8000
+✅ INFO: Uvicorn running on http://0.0.0.0:9000
 ✅ API request [status_code=200]
 ```
 
@@ -88,7 +88,7 @@ The system has been proven to work:
 
 ```bash
 cd arthur-imgreco
-PYTHONPATH=src poetry run uvicorn arthur_imgreco.main:app --host 0.0.0.0 --port 8000
+PYTHONPATH=src poetry run uvicorn arthur_imgreco.main:app --host 0.0.0.0 --port 9000
 ```
 
 ### **Key Endpoints**
@@ -118,7 +118,7 @@ docker-compose up -d  # Full production stack
 
 ```python
 # This code works exactly the same:
-response = requests.post('http://localhost:8000/match',
+response = requests.post('http://localhost:9000/match',
                         files={'imgFile': image_data})
 ```
 

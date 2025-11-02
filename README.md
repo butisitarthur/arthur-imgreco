@@ -18,47 +18,47 @@ Arthur Image Recognition 2.0 is an AI-powered image recognition and similarity s
 <details>
 <summary markdown>Table of contents</summary>
 
-- [Quick Start](#quick-start)
-  - [Prerequisites](#prerequisites)
-  - [Using Docker (Recommended)](#using-docker-recommended)
-- [Adding Images to the Database](#adding-images-to-the-database)
-  - [Adding Individual Images](#adding-individual-images)
-  - [Batch Image Upload](#batch-image-upload)
-  - [Monitoring Upload Progress](#monitoring-upload-progress)
-- [Example Usage](#example-usage)
-  - [Basic Image Matching (Legacy Compatible)](#basic-image-matching-legacy-compatible)
-  - [Enhanced Similarity Search](#enhanced-similarity-search)
-  - [Batch Processing](#batch-processing)
-  - [Local Development](#local-development)
-- [API Reference](#api-reference)
-  - [Legacy Compatibility Endpoints](#legacy-compatibility-endpoints)
-  - [Enhanced API v1 Endpoints](#enhanced-api-v1-endpoints)
-- [Database Requirements](#database-requirements)
-  - [PostgreSQL Setup](#postgresql-setup)
-  - [Qdrant Configuration](#qdrant-configuration)
-- [Architecture](#architecture)
-  - [Tech Stack](#tech-stack)
-- [Deployment](#deployment)
-  - [Production Docker Setup](#production-docker-setup)
-  - [Kubernetes Deployment](#kubernetes-deployment)
-  - [Environment Variables](#environment-variables)
-- [Performance \& Scaling](#performance--scaling)
-  - [Expected Performance](#expected-performance)
-  - [Scaling Recommendations](#scaling-recommendations)
-  - [Resource Requirements](#resource-requirements)
-- [Monitoring \& Observability](#monitoring--observability)
-  - [Health Checks](#health-checks)
-  - [Metrics \& Monitoring](#metrics--monitoring)
-  - [Alerting](#alerting)
-- [Development](#development)
-  - [Running Tests](#running-tests)
-  - [Code Quality](#code-quality)
-  - [Adding New Features](#adding-new-features)
-- [Troubleshooting](#troubleshooting)
-  - [Common Issues](#common-issues)
-  - [Getting Help](#getting-help)
-- [License](#license)
-- [Contributing](#contributing)
+-   [Quick Start](#quick-start)
+    -   [Prerequisites](#prerequisites)
+    -   [Using Docker (Recommended)](#using-docker-recommended)
+-   [Adding Images to the Database](#adding-images-to-the-database)
+    -   [Adding Individual Images](#adding-individual-images)
+    -   [Batch Image Upload](#batch-image-upload)
+    -   [Monitoring Upload Progress](#monitoring-upload-progress)
+-   [Example Usage](#example-usage)
+    -   [Basic Image Matching (Legacy Compatible)](#basic-image-matching-legacy-compatible)
+    -   [Enhanced Similarity Search](#enhanced-similarity-search)
+    -   [Batch Processing](#batch-processing)
+    -   [Local Development](#local-development)
+-   [API Reference](#api-reference)
+    -   [Legacy Compatibility Endpoints](#legacy-compatibility-endpoints)
+    -   [Enhanced API v1 Endpoints](#enhanced-api-v1-endpoints)
+-   [Database Requirements](#database-requirements)
+    -   [PostgreSQL Setup](#postgresql-setup)
+    -   [Qdrant Configuration](#qdrant-configuration)
+-   [Architecture](#architecture)
+    -   [Tech Stack](#tech-stack)
+-   [Deployment](#deployment)
+    -   [Production Docker Setup](#production-docker-setup)
+    -   [Kubernetes Deployment](#kubernetes-deployment)
+    -   [Environment Variables](#environment-variables)
+-   [Performance \& Scaling](#performance--scaling)
+    -   [Expected Performance](#expected-performance)
+    -   [Scaling Recommendations](#scaling-recommendations)
+    -   [Resource Requirements](#resource-requirements)
+-   [Monitoring \& Observability](#monitoring--observability)
+    -   [Health Checks](#health-checks)
+    -   [Metrics \& Monitoring](#metrics--monitoring)
+    -   [Alerting](#alerting)
+-   [Development](#development)
+    -   [Running Tests](#running-tests)
+    -   [Code Quality](#code-quality)
+    -   [Adding New Features](#adding-new-features)
+-   [Troubleshooting](#troubleshooting)
+    -   [Common Issues](#common-issues)
+    -   [Getting Help](#getting-help)
+-   [License](#license)
+-   [Contributing](#contributing)
 
 </details>
 
@@ -98,12 +98,12 @@ Arthur Image Recognition 2.0 is an AI-powered image recognition and similarity s
 4. **Verify the setup:**
 
     ```bash
-    curl http://localhost:8000/health
+    curl http://localhost:9000/health
     ```
 
 5. **Access the API documentation:**
-    - **Interactive docs**: http://localhost:8000/api/v1/docs
-    - **ReDoc**: http://localhost:8000/api/v1/redoc
+    - **Interactive docs**: http://localhost:9000/api/v1/docs
+    - **ReDoc**: http://localhost:9000/api/v1/redoc
     - **Grafana**: http://localhost:3000 (admin/admin123)
 
 <br>
@@ -112,42 +112,74 @@ Arthur Image Recognition 2.0 is an AI-powered image recognition and similarity s
 
 ### Adding Individual Images
 
-**Method 1: Using the Legacy API (Simple)**
-
-```bash
-# Add image by URL
-curl -X POST http://localhost:8000/artist/image/artist123/entry456/view789 \
-  -F "imgUrl=https://example.com/artwork.jpg"
-
-# Add image by file upload
-curl -X POST http://localhost:8000/artist/image/artist123/entry456/view789 \
-  -F "imgFile=@/path/to/artwork.jpg"
-```
-
-**Method 2: Using Python**
+**Method 1: Modern API (Recommended)**
 
 ```python
 import requests
 
-# Add by URL
+# Add image by URL with metadata
 response = requests.post(
-    'http://localhost:8000/artist/image/artist123/entry456/view789',
-    data={'imgUrl': 'https://example.com/artwork.jpg'}
+    'http://localhost:9000/api/v1/images',
+    json={
+        "image_url": "https://example.com/artwork.jpg",
+        "artist_id": "artist123",
+        "image_id": "unique_image_001",
+        "metadata": {
+            "title": "Starry Night",
+            "description": "Famous painting by Van Gogh",
+            "tags": ["post-impressionism", "night", "stars"],
+            "artist_name": "Vincent van Gogh",
+            "creation_date": "1889",
+            "medium": "oil on canvas"
+        }
+    }
 )
 
-# Add by file upload
-with open('artwork.jpg', 'rb') as f:
-    response = requests.post(
-        'http://localhost:8000/artist/image/artist123/entry456/view789',
-        files={'imgFile': f}
-    )
-
 print(response.json())
+# Returns: {"image_id": "unique_image_001", "status": "success", ...}
+```
+
+**Method 2: File Upload**
+
+```python
+# Upload image file directly
+files = {'image_file': open('artwork.jpg', 'rb')}
+data = {
+    'artist_id': 'artist123',
+    'image_id': 'unique_image_002',
+    'title': 'Local Artwork',
+    'tags': 'modern,abstract,colorful'
+}
+
+response = requests.post(
+    'http://localhost:9000/api/v1/images/upload',
+    files=files,
+    data=data
+)
+```
+
+**Method 3: cURL (Simple)**
+
+```bash
+# Add image via URL
+curl -X POST http://localhost:9000/api/v1/images \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_url": "https://example.com/art.jpg",
+    "artist_id": "artist123",
+    "image_id": "image001"
+  }'
+
+# Upload file
+curl -X POST http://localhost:9000/api/v1/images/upload \
+  -F "artist_id=artist123" \
+  -F "image_id=image002" \
+  -F "image_file=@artwork.jpg"
 ```
 
 ### Batch Image Upload
 
-**Method 1: JSON Batch Upload**
+**Method 1: Batch API (Most Efficient)**
 
 ```python
 import requests
@@ -156,157 +188,227 @@ import requests
 batch_data = {
     "images": [
         {
+            "image_url": "https://example.com/art1.jpg",
             "artist_id": "artist123",
-            "entry_id": "entry001",
-            "view_id": "view001",
-            "url": "https://example.com/art1.jpg"
+            "image_id": "batch_001",
+            "metadata": {
+                "title": "Artwork 1",
+                "tags": ["modern", "abstract"]
+            }
         },
         {
+            "image_url": "https://example.com/art2.jpg",
             "artist_id": "artist123",
-            "entry_id": "entry002",
-            "view_id": "view002",
-            "url": "https://example.com/art2.jpg"
+            "image_id": "batch_002",
+            "metadata": {
+                "title": "Artwork 2",
+                "tags": ["classical", "portrait"]
+            }
         }
     ]
 }
 
 response = requests.post(
-    'http://localhost:8000/artist/image',
+    'http://localhost:9000/api/v1/images/batch',
     json=batch_data
 )
+
+result = response.json()
+print(f"Processed: {result['successful']} successful, {result['failed']} failed")
 ```
 
-**Method 2: Directory Bulk Upload Script**
+**Method 2: Directory Bulk Upload**
 
 ```python
-import os
 import requests
 from pathlib import Path
 
-def bulk_upload_directory(directory_path, artist_id, base_url="http://localhost:8000"):
-    """Upload all images from a directory"""
+def bulk_upload_directory(directory_path, artist_id, base_url="http://localhost:9000"):
+    """Upload all images from a directory using modern API"""
 
     image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.tiff', '.bmp'}
+    images = []
 
+    # Prepare batch request
     for i, image_path in enumerate(Path(directory_path).iterdir()):
         if image_path.suffix.lower() in image_extensions:
+            images.append({
+                "image_url": f"file://{image_path.absolute()}",  # For local files
+                "artist_id": artist_id,
+                "image_id": f"{artist_id}_{i:06d}",
+                "metadata": {
+                    "title": image_path.stem,
+                    "source_file": image_path.name
+                }
+            })
 
-            # Generate IDs based on filename
-            entry_id = f"entry_{i:06d}"
-            view_id = f"view_{i:06d}"
+    # Send batch request
+    if images:
+        response = requests.post(
+            f'{base_url}/api/v1/images/batch',
+            json={"images": images}
+        )
 
-            with open(image_path, 'rb') as f:
-                response = requests.post(
-                    f'{base_url}/artist/image/{artist_id}/{entry_id}/{view_id}',
-                    files={'imgFile': f}
-                )
+        result = response.json()
+        print(f"✅ Processed {len(images)} images")
+        print(f"   Successful: {result['successful']}")
+        print(f"   Failed: {result['failed']}")
+        return result
 
-            if response.status_code == 200:
-                print(f"✅ Uploaded: {image_path.name}")
-            else:
-                print(f"❌ Failed: {image_path.name} - {response.text}")
+    print("No images found in directory")
+    return None
 
 # Usage
 bulk_upload_directory("/path/to/artworks", "artist123")
 ```
 
-**Method 3: CSV-Driven Batch Upload**
+**Method 3: CSV-Driven Upload**
 
 ```python
 import pandas as pd
 import requests
 
-def upload_from_csv(csv_file, base_url="http://localhost:8000"):
-    """Upload images from a CSV file with metadata"""
+def upload_from_csv(csv_file, base_url="http://localhost:9000"):
+    """Upload images from CSV using batch API"""
 
-    # CSV format: artist_id,entry_id,view_id,image_url,title,description
+    # CSV format: artist_id,image_id,image_url,title,description,tags
     df = pd.read_csv(csv_file)
 
+    # Convert CSV to batch format
+    images = []
     for _, row in df.iterrows():
-        response = requests.post(
-            f'{base_url}/artist/image/{row.artist_id}/{row.entry_id}/{row.view_id}',
-            data={
-                'imgUrl': row.image_url,
-                'title': row.get('title', ''),
-                'description': row.get('description', '')
+        image_data = {
+            "image_url": row['image_url'],
+            "artist_id": row['artist_id'],
+            "image_id": row['image_id'],
+            "metadata": {
+                "title": row.get('title', ''),
+                "description": row.get('description', ''),
+                "tags": row.get('tags', '').split(',') if row.get('tags') else []
             }
+        }
+        images.append(image_data)
+
+    # Process in batches of 50
+    batch_size = 50
+    for i in range(0, len(images), batch_size):
+        batch = images[i:i+batch_size]
+
+        response = requests.post(
+            f'{base_url}/api/v1/images/batch',
+            json={"images": batch}
         )
 
         if response.status_code == 200:
-            print(f"✅ Uploaded: {row.artist_id}/{row.entry_id}")
+            result = response.json()
+            print(f"✅ Batch {i//batch_size + 1}: {result['successful']}/{len(batch)} successful")
         else:
-            print(f"❌ Failed: {row.artist_id}/{row.entry_id}")
+            print(f"❌ Batch {i//batch_size + 1} failed: {response.text}")
 
 # Usage
 upload_from_csv("artworks.csv")
 ```
 
-### Monitoring Upload Progress
+### Monitoring and Management
+
+**Check Upload Status:**
 
 ```bash
-# Check indexing status
-curl http://localhost:8000/api/v1/index/stats
+# View index statistics
+curl http://localhost:9000/api/v1/index/stats
 
-# Monitor system health during uploads
-curl http://localhost:8000/health
+# Get specific image info
+curl http://localhost:9000/api/v1/images/unique_image_001
 
-# Check Docker container logs
-docker compose logs -f arthur-imgreco
+# Monitor system health
+curl http://localhost:9000/health
 ```
 
-<br>
+**Delete Images:**
+
+````bash
+# Remove image from index
+curl -X DELETE http://localhost:9000/api/v1/images/image_to_delete
+```<br>
 
 ## Example Usage
 
-### Basic Image Matching (Legacy Compatible)
+### Adding Images (Modern API)
 
 ```python
 import requests
 
-# Match by URL
-response = requests.post('http://localhost:8000/match',
-    json={'imgUrl': 'https://example.com/artwork.jpg'})
-
-# Match by file upload
-with open('artwork.jpg', 'rb') as f:
-    response = requests.post('http://localhost:8000/match',
-        files={'imgFile': f})
-
-print(response.json())
-```
-
-<br>
-### Enhanced Similarity Search
-
-```python
-import requests
-
-# Advanced similarity search
-response = requests.post('http://localhost:8000/api/v1/similarity/search',
+# Add single image with metadata
+response = requests.post('http://localhost:9000/api/v1/images',
     json={
         'image_url': 'https://example.com/artwork.jpg',
-        'artist_filter': ['artist123', 'artist456'],
+        'artist_id': 'vangogh',
+        'image_id': 'starry_night_001',
+        'metadata': {
+            'title': 'The Starry Night',
+            'tags': ['post-impressionism', 'night', 'swirls'],
+            'creation_date': '1889'
+        }
+    })
+
+print(f"✅ {response.json()['message']}")
+````
+
+### Similarity Search
+
+```python
+import requests
+
+# Search for similar images
+response = requests.post('http://localhost:9000/api/v1/similarity/search',
+    json={
+        'image_url': 'https://example.com/query.jpg',
+        'artist_filter': ['vangogh', 'monet'],
         'similarity_threshold': 0.8,
         'max_results': 20
     })
 
 results = response.json()
 print(f"Found {results['total_results']} matches in {results['query_time_ms']}ms")
+
+for match in results['results']:
+    print(f"  {match['artist_id']}/{match['image_id']} - {match['similarity_score']:.3f}")
 ```
 
-<br>
-### Batch Processing
+### Batch Operations
 
 ```python
-# Process multiple images
-response = requests.post('http://localhost:8000/api/v1/similarity/batch',
-    json={
-        'images': [
-            'https://example.com/art1.jpg',
-            'https://example.com/art2.jpg'
-        ],
-        'max_results_per_image': 10
-    })
+# Add multiple images efficiently
+batch_request = {
+    "images": [
+        {
+            "image_url": "https://example.com/art1.jpg",
+            "artist_id": "picasso",
+            "image_id": "guernica_001"
+        },
+        {
+            "image_url": "https://example.com/art2.jpg",
+            "artist_id": "picasso",
+            "image_id": "les_demoiselles_001"
+        }
+    ]
+}
+
+response = requests.post('http://localhost:9000/api/v1/images/batch', json=batch_request)
+result = response.json()
+print(f"Processed: {result['successful']} successful, {result['failed']} failed")
+```
+
+### Legacy Compatibility
+
+```python
+import requests
+
+# Legacy API (backward compatible)
+response = requests.post('http://localhost:9000/match',
+    json={'imgUrl': 'https://example.com/artwork.jpg'})
+
+print(response.json())
 ```
 
 <br>
@@ -328,46 +430,51 @@ response = requests.post('http://localhost:8000/api/v1/similarity/batch',
 
 3. **Run the application:**
     ```bash
-    uvicorn arthur_imgreco.main:app --reload --host 0.0.0.0 --port 8000
+    uvicorn arthur_imgreco.main:app --reload --host 0.0.0.0 --port 9000
     ```
 
 <br>
 
 ## API Reference
 
-### Legacy Compatibility Endpoints
+### Modern API v1 Endpoints (Recommended)
 
-**Fully compatible with arthur-imgreco v1:**
+**Image Management:**
 
 ```http
-POST /match
-POST /match/{artist_id}
-POST /artist/image
-POST /artist/image/{artist_id}/{entry_id}/{view_id}
-GET /status
-POST /unified-index
+POST /api/v1/images              # Add single image
+POST /api/v1/images/batch        # Add multiple images efficiently
+POST /api/v1/images/upload       # Upload image file directly
+GET /api/v1/images/{image_id}    # Get image information
+DELETE /api/v1/images/{image_id} # Remove image from index
 ```
 
-<br>
-
-### Enhanced API v1 Endpoints
-
-**New modern endpoints with advanced features:**
+**Similarity Search:**
 
 ```http
-# Enhanced similarity search
-POST /api/v1/similarity/search
-POST /api/v1/similarity/batch
-GET /api/v1/similarity/{image_id}
+POST /api/v1/similarity/search   # Advanced similarity search
+POST /api/v1/similarity/batch    # Batch similarity processing
+GET /api/v1/similarity/{image_id} # Find similar to existing image
+```
 
-# Analytics and insights
-GET /api/v1/index/stats
-GET /api/v1/artists/{artist_id}/analytics
+**Analytics & System:**
 
-# System management
-POST /api/v1/index/rebuild
-GET /api/v1/models/info
-GET /api/v1/metrics
+```http
+GET /api/v1/index/stats          # Index statistics and performance
+GET /api/v1/artists/{id}/analytics # Artist-specific analytics
+GET /api/v1/models/info          # ML model information
+POST /api/v1/index/rebuild       # Trigger index rebuild
+```
+
+### Legacy Compatibility Endpoints
+
+**For backward compatibility with arthur-imgreco v1:**
+
+```http
+POST /match                      # Image matching (legacy format)
+POST /artist/image/{artist_id}/{entry_id}/{view_id}  # Legacy image addition
+GET /status                      # System status (legacy format)
+POST /unified-index              # Legacy index management
 ```
 
 <br>
@@ -519,15 +626,15 @@ INDEX_BUILD_CONCURRENCY=2
 
 ```bash
 # Basic health
-curl http://localhost:8000/health
+curl http://localhost:9000/health
 
 # Detailed health with service status
-curl http://localhost:8000/api/health
+curl http://localhost:9000/api/health
 ```
 
 ### Metrics & Monitoring
 
--   **Prometheus metrics**: http://localhost:8000/api/v1/metrics
+-   **Prometheus metrics**: http://localhost:9000/api/v1/metrics
 -   **Grafana dashboards**: http://localhost:3000
 -   **Application logs**: Structured JSON logs with correlation IDs
 -   **Performance tracking**: Request duration, error rates, ML model performance
@@ -602,7 +709,7 @@ docker-compose ps
 
 ```bash
 # Check index status
-curl http://localhost:8000/api/v1/index/stats
+curl http://localhost:9000/api/v1/index/stats
 
 # Monitor resource usage
 docker stats

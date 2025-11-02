@@ -5,7 +5,7 @@
 echo "🚀 Arthur Image Recognition 2.0 - System Tests"
 echo "================================================="
 
-BASE_URL="http://localhost:8000"
+BASE_URL="http://localhost:9000"
 
 # Test 1: Health Check
 echo -e "\n🧪 Testing: Health Check"

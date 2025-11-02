@@ -46,7 +46,7 @@ async def test_full_system():
     
     # Test 4: Service Status
     print("\n🏥 Service Health Status...")
-    print("  ✅ Arthur 2.0 API: Running on port 8000")
+    print("  ✅ Arthur 2.0 API: Running on port 9000")
     print("  ✅ Qdrant Vector DB: Running on port 6333") 
     print("  ✅ PostgreSQL DB: Running on port 5432")
     print("  ✅ Redis Cache: Running on port 6379")
@@ -57,15 +57,15 @@ async def test_full_system():
     
     print("\n📋 QUICK START GUIDE:")
     print("1. 🖼️  Process an image:")
-    print("   curl -X POST http://localhost:8000/match \\")
+    print("   curl -X POST http://localhost:9000/match \\")
     print("        -H 'Content-Type: application/json' \\")
     print("        -d '{\"imgUrl\": \"your-image-url\"}'")
     
     print("\n2. 🔍 Check system health:")
-    print("   curl http://localhost:8000/health")
+    print("   curl http://localhost:9000/health")
     
     print("\n3. 📊 View API documentation:")
-    print("   open http://localhost:8000/api/v1/docs")
+    print("   open http://localhost:9000/api/v1/docs")
     
     print("\n4. 🎛️  Monitor services:")
     print("   docker compose ps")

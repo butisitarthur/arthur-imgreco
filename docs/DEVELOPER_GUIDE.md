@@ -94,7 +94,7 @@ poetry install
 docker compose up -d qdrant postgres redis
 
 # 4. Run application
-poetry run uvicorn arthur_imgreco.main:app --host 0.0.0.0 --port 8000
+poetry run uvicorn arthur_imgreco.main:app --host 0.0.0.0 --port 9000
 ```
 
 ### **Environment Variables**
@@ -127,7 +127,7 @@ poetry run python test_clip.py
 poetry run python performance_test.py
 
 # API endpoints
-curl http://localhost:8000/health
+curl http://localhost:9000/health
 ```
 
 ### **Expected Test Results**
@@ -215,11 +215,11 @@ GET /api/v1/models/info            # Model information
 
 ```python
 # Legacy compatibility
-response = requests.post('http://localhost:8000/match',
+response = requests.post('http://localhost:9000/match',
                         json={'imgUrl': 'https://example.com/art.jpg'})
 
 # Modern API
-response = requests.post('http://localhost:8000/api/v1/similarity/search',
+response = requests.post('http://localhost:9000/api/v1/similarity/search',
     json={
         'image_url': 'https://example.com/art.jpg',
         'similarity_threshold': 0.8,
@@ -263,7 +263,7 @@ docker compose up -d --scale arthur-imgreco=3
 
 ```bash
 # Service health
-curl http://localhost:8000/health
+curl http://localhost:9000/health
 
 # Container status
 docker compose ps
@@ -501,13 +501,13 @@ ai-result.md              # Implementation summary
 
 ```bash
 # Start development
-poetry run uvicorn arthur_imgreco.main:app --reload --host 0.0.0.0 --port 8000
+poetry run uvicorn arthur_imgreco.main:app --reload --host 0.0.0.0 --port 9000
 
 # Run tests
 poetry run python test_full_system.py
 
 # Check health
-curl http://localhost:8000/health
+curl http://localhost:9000/health
 ```
 
 ### **Production**
@@ -556,7 +556,7 @@ docker compose exec arthur-imgreco bash
 
 ### **API Errors**
 
-1. Health check: `curl http://localhost:8000/health`
+1. Health check: `curl http://localhost:9000/health`
 2. Check model loading: Look for CLIP loading success in logs
 3. Verify services: Ensure Qdrant/PostgreSQL/Redis are running
 4. Review error logs: Enable DEBUG logging for details

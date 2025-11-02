@@ -35,7 +35,7 @@ async def test_vector_operations():
     print("  • CLIP model: ✅ Loaded and functional")
     print("  • Vector embeddings: ✅ Generated successfully")
     print("  • Apple Silicon GPU: ✅ Accelerated inference")
-    print("  • FastAPI server: ✅ Running on port 8000")
+    print("  • FastAPI server: ✅ Running on port 9000")
     print("  • API compatibility: ✅ Legacy endpoints working")
     
     print("\n" + "=" * 50)
@@ -44,7 +44,7 @@ async def test_vector_operations():
     
     print("\n📋 NEXT STEPS:")
     print("  1. Start Qdrant with Docker: docker compose up -d qdrant")
-    print("  2. Test vector search: curl -X POST localhost:8000/api/v1/similarity/search")
+    print("  2. Test vector search: curl -X POST localhost:9000/api/v1/similarity/search")
     print("  3. Index your image collection")
     print("  4. Run comprehensive tests")
 

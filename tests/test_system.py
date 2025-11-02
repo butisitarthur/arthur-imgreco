@@ -12,7 +12,7 @@ import sys
 import json
 from pathlib import Path
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:9000"
 
 
 async def test_health():
@@ -58,7 +58,7 @@ async def test_docs():
         try:
             async with session.get(f"{BASE_URL}/docs") as response:
                 if response.status == 200:
-                    print("✅ API documentation available at http://localhost:8000/docs")
+                    print("✅ API documentation available at http://localhost:9000/docs")
                     return True
                 else:
                     print(f"❌ Docs unavailable: {response.status}")
@@ -130,7 +130,7 @@ async def run_tests():
     if passed == total:
         print("\n🎉 All tests passed! Arthur Image Recognition 2.0 is ready!")
         print("\n📚 Next Steps:")
-        print("   • Visit http://localhost:8000/docs for API documentation")
+        print("   • Visit http://localhost:9000/docs for API documentation")
         print("   • Test with real images using the /match endpoint")
         print("   • Check system metrics and logs")
         print("   • Deploy using Docker Compose for production")

@@ -5,7 +5,7 @@ services:
     arthur-imgreco:
         build: .
         ports:
-            - '${APP_PORT:-8000}:8000'
+            - '${APP_PORT:-9000}:9000'
         environment:
             - DATABASE_URL=postgresql://arthur:arthur123@postgres:5432/arthur_imgreco
             - REDIS_URL=redis://redis:6379

@@ -82,21 +82,43 @@ class QdrantService:
         logger.info("Connecting to Qdrant", url=settings.qdrant_url)
 
         try:
-            self.client = AsyncQdrantClient(url=settings.qdrant_url)
-
-            # Test connection
-            collections = await self.client.get_collections()
-            logger.info(
-                "Connected to Qdrant successfully", collections_count=len(collections.collections)
+            # Create client with timeout settings
+            self.client = AsyncQdrantClient(
+                url=settings.qdrant_url,
+                timeout=30.0
             )
+
+            # Test connection with better error handling
+            try:
+                collections = await self.client.get_collections()
+                logger.info(
+                    "Connected to Qdrant successfully", 
+                    collections_count=len(collections.collections),
+                    qdrant_url=settings.qdrant_url
+                )
+            except Exception as conn_error:
+                logger.error(
+                    "Qdrant connection test failed", 
+                    url=settings.qdrant_url,
+                    error=str(conn_error),
+                    error_type=type(conn_error).__name__
+                )
+                raise
 
             # Ensure collection exists
             await self._ensure_collection()
 
             self._connected = True
+            logger.info("Qdrant connection established successfully")
 
         except Exception as e:
-            logger.error("Failed to connect to Qdrant", error=str(e))
+            logger.error(
+                "Failed to connect to Qdrant", 
+                url=settings.qdrant_url,
+                error=str(e),
+                error_type=type(e).__name__,
+                exc_info=True
+            )
             raise RuntimeError(f"Could not connect to Qdrant: {e}") from e
 
     async def _ensure_collection(self) -> None:
@@ -107,24 +129,38 @@ class QdrantService:
             logger.info("Collection already exists", name=self.collection_name)
             return
 
-        except ResponseHandlingException:
-            # Collection doesn't exist, create it
-            logger.info("Creating new collection", name=self.collection_name)
-
-            await self.client.create_collection(
-                collection_name=self.collection_name,
-                vectors_config=VectorParams(
-                    size=settings.embedding_dimension,
-                    distance=Distance.COSINE,  # Use cosine similarity for CLIP embeddings
-                ),
-            )
-
+        except Exception as e:
+            # Collection doesn't exist or other error, try to create it
             logger.info(
-                "Collection created successfully",
+                "Collection check failed, attempting to create", 
                 name=self.collection_name,
-                dimension=settings.embedding_dimension,
-                distance_metric="cosine",
+                error=str(e)
             )
+
+            try:
+                await self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=VectorParams(
+                        size=settings.embedding_dimension,
+                        distance=Distance.COSINE,  # Use cosine similarity for CLIP embeddings
+                    ),
+                )
+
+                logger.info(
+                    "Collection created successfully",
+                    name=self.collection_name,
+                    dimension=settings.embedding_dimension,
+                    distance_metric="cosine",
+                )
+                
+            except Exception as creation_error:
+                logger.error(
+                    "Failed to create collection",
+                    name=self.collection_name,
+                    error=str(creation_error),
+                    error_type=type(creation_error).__name__
+                )
+                raise
 
     async def add_image_embedding(
         self, embedding: np.ndarray, metadata: ImageMetadata, vector_id: Optional[str] = None
