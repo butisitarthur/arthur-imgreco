@@ -2,6 +2,7 @@
 Structured logging configuration using structlog.
 """
 
+import os
 import sys
 import logging as stdlib_logging
 from typing import Any
@@ -15,19 +16,25 @@ from core.config import settings
 def configure_logging() -> None:
     """Configure structured logging for the application."""
 
-    # Configure stdlib logging
+    # Configure stdlib logging with file output
+    log_file = os.path.join(os.getcwd(), "app.log")
+
+    # Create handlers for both file and console
+    file_handler = stdlib_logging.FileHandler(log_file, mode="a")
+    console_handler = stdlib_logging.StreamHandler(sys.stdout)
+
     stdlib_logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stdout,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[file_handler, console_handler],
         level=getattr(stdlib_logging, settings.log_level.upper()),
     )
-    
+
     # Suppress verbose HTTP client logging
     stdlib_logging.getLogger("httpx").setLevel(stdlib_logging.WARNING)
     stdlib_logging.getLogger("httpcore").setLevel(stdlib_logging.WARNING)
     stdlib_logging.getLogger("httpcore.connection").setLevel(stdlib_logging.WARNING)
     stdlib_logging.getLogger("httpcore.http11").setLevel(stdlib_logging.WARNING)
-    
+
     # Suppress other verbose loggers
     stdlib_logging.getLogger("urllib3").setLevel(stdlib_logging.WARNING)
     stdlib_logging.getLogger("requests").setLevel(stdlib_logging.WARNING)

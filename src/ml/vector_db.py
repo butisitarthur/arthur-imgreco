@@ -20,6 +20,7 @@ from qdrant_client.models import (
     Filter,
     FieldCondition,
     MatchValue,
+    OptimizersConfigDiff,
 )
 
 from core.logging import get_logger
@@ -77,25 +78,22 @@ class QdrantService:
 
         try:
             # Create client with timeout settings
-            self.client = AsyncQdrantClient(
-                url=settings.qdrant_url,
-                timeout=30.0
-            )
+            self.client = AsyncQdrantClient(url=settings.qdrant_url, timeout=30.0)
 
             # Test connection with better error handling
             try:
                 collections = await self.client.get_collections()
                 logger.info(
-                    "Connected to Qdrant successfully", 
+                    "Connected to Qdrant successfully",
                     collections_count=len(collections.collections),
-                    qdrant_url=settings.qdrant_url
+                    qdrant_url=settings.qdrant_url,
                 )
             except Exception as conn_error:
                 logger.error(
-                    "Qdrant connection test failed", 
+                    "Qdrant connection test failed",
                     url=settings.qdrant_url,
                     error=str(conn_error),
-                    error_type=type(conn_error).__name__
+                    error_type=type(conn_error).__name__,
                 )
                 raise
 
@@ -107,11 +105,11 @@ class QdrantService:
 
         except Exception as e:
             logger.error(
-                "Failed to connect to Qdrant", 
+                "Failed to connect to Qdrant",
                 url=settings.qdrant_url,
                 error=str(e),
                 error_type=type(e).__name__,
-                exc_info=True
+                exc_info=True,
             )
             raise RuntimeError(f"Could not connect to Qdrant: {e}") from e
 
@@ -126,9 +124,9 @@ class QdrantService:
         except Exception as e:
             # Collection doesn't exist or other error, try to create it
             logger.info(
-                "Collection check failed, attempting to create", 
+                "Collection check failed, attempting to create",
                 name=self.collection_name,
-                error=str(e)
+                error=str(e),
             )
 
             try:
@@ -138,6 +136,11 @@ class QdrantService:
                         size=settings.embedding_dimension,
                         distance=Distance.COSINE,  # Use cosine similarity for CLIP embeddings
                     ),
+                    # REMOVE FOR PRODUCTION
+                    # Start indexing after 1000 vectors instead of 20000
+                    optimizers_config=OptimizersConfigDiff(
+                        indexing_threshold=settings.indexing_threshold,
+                    ),
                 )
 
                 logger.info(
@@ -145,14 +148,15 @@ class QdrantService:
                     name=self.collection_name,
                     dimension=settings.embedding_dimension,
                     distance_metric="cosine",
+                    indexing_threshold=settings.indexing_threshold,
                 )
-                
+
             except Exception as creation_error:
                 logger.error(
                     "Failed to create collection",
                     name=self.collection_name,
                     error=str(creation_error),
-                    error_type=type(creation_error).__name__
+                    error_type=type(creation_error).__name__,
                 )
                 raise
 

@@ -109,12 +109,12 @@ ignore = [
 
 [tool.black]
 line-length = 100
-target-version = ['py314']
+target-version = ['py312']
 include = '\.pyi?$'
 preview = true
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.12"
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true

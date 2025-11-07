@@ -1,3 +1,9 @@
+<!--
+docker-compose up -d postgres redis qdrant
+poetry shell
+PYTHONPATH=src uvicorn main:app --reload --host 0.0.0.0 --port 9000 --reload
+-->
+
 # Arthur Image Recognition <!-- omit in toc -->
 
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg?style=flat-square)](https://www.python.org/downloads/)
@@ -24,18 +30,17 @@ Arthur Image Recognition 2.0 is an AI-powered image recognition and similarity s
 -   [Adding Images to the Database](#adding-images-to-the-database)
     -   [Adding Individual Images](#adding-individual-images)
     -   [Batch Image Upload](#batch-image-upload)
-    -   [Monitoring Upload Progress](#monitoring-upload-progress)
--   [Example Usage](#example-usage)
-    -   [Basic Image Matching (Legacy Compatible)](#basic-image-matching-legacy-compatible)
-    -   [Enhanced Similarity Search](#enhanced-similarity-search)
-    -   [Batch Processing](#batch-processing)
+    -   [Monitoring and Management](#monitoring-and-management)
+    -   [Similarity Search](#similarity-search)
+    -   [Batch Operations with Hierarchical IDs](#batch-operations-with-hierarchical-ids)
+    -   [Legacy Compatibility](#legacy-compatibility)
     -   [Local Development](#local-development)
 -   [API Reference](#api-reference)
+    -   [Modern API v1 Endpoints (Recommended)](#modern-api-v1-endpoints-recommended)
     -   [Legacy Compatibility Endpoints](#legacy-compatibility-endpoints)
-    -   [Enhanced API v1 Endpoints](#enhanced-api-v1-endpoints)
 -   [Database Requirements](#database-requirements)
-    -   [PostgreSQL Setup](#postgresql-setup)
-    -   [Qdrant Configuration](#qdrant-configuration)
+    -   [Qdrant Vector Database (Primary Storage)](#qdrant-vector-database-primary-storage)
+    -   [Redis Cache (Optional but Recommended)](#redis-cache-optional-but-recommended)
 -   [Architecture](#architecture)
     -   [Tech Stack](#tech-stack)
 -   [Deployment](#deployment)
@@ -510,7 +515,7 @@ print(response.json())
 
 3. **Run the application:**
     ```bash
-    PYTHONPATH=src uvicorn main:app --reload --host 0.0.0.0 --port 9000
+    PYTHONPATH=src uvicorn main:app --reload --host 0.0.0.0 --port 9000 --reload
     ```
 
 <br>

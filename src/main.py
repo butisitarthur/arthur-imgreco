@@ -20,7 +20,6 @@ from core.logging import (
 )
 from api import health, v1
 
-
 # Configure logging
 configure_logging()
 logger = get_logger(__name__)
@@ -67,7 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Cleanup tasks
         logger.info("Shutting down Arthur Image Recognition 2.0")
         # Cleanup CLIP service if needed
-        if hasattr(app.state, 'clip_service') and app.state.clip_service:
+        if hasattr(app.state, "clip_service") and app.state.clip_service:
             # CLIP service cleanup is handled automatically by PyTorch
             pass
         # Qdrant client cleanup is handled automatically by the client
