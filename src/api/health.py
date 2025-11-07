@@ -42,14 +42,27 @@ async def detailed_health_check() -> DetailedHealthResponse:
         from core.services import get_qdrant_service
         qdrant_service = get_qdrant_service()
         
-        # Basic collection check
-        collections = await qdrant_service.list_collections()
-        if collections:
-            services["vector_db"] = f"healthy ({len(collections)} collections)"
+        # Use the built-in health check method
+        is_healthy = await qdrant_service.health_check()
+        if is_healthy:
+            # Get additional collection info
+            try:
+                stats = await qdrant_service.get_collection_stats()
+                if "error" not in stats:
+                    vectors_count = stats.get("vectors_count")
+                    points_count = stats.get("points_count", 0) or 0
+                    total_count = vectors_count if vectors_count is not None else points_count
+                    services["vector_db"] = f"healthy ({total_count} vectors)"
+                else:
+                    services["vector_db"] = "healthy (connected)"
+            except Exception:
+                services["vector_db"] = "healthy (connected)"
         else:
-            services["vector_db"] = "healthy (no collections)"
+            services["vector_db"] = "unhealthy (connection failed)"
+            critical_failures.append("vector_db")
     except Exception as e:
         services["vector_db"] = f"unhealthy: {str(e)}"
+        critical_failures.append("vector_db")
         logger.error("Vector DB health check failed", error=str(e))
     
     # Check Redis Cache

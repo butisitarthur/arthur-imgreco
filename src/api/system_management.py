@@ -34,7 +34,6 @@ async def get_index_statistics() -> IndexStats:
             logger.info("Returning cached index statistics")
             return IndexStats(**cached_stats)
     except Exception:
-        # If cache fails, continue with normal flow
         pass
     
     logger.info("Computing fresh index statistics")
@@ -56,7 +55,32 @@ async def get_index_statistics() -> IndexStats:
             
             # Calculate actual artist count by scrolling through all points
             artist_ids = set()
-            index_size_bytes = stats.get("disk_data_size", 0) or 0
+            
+            # Get index size - try multiple size fields from Qdrant
+            index_size_bytes = (
+                stats.get("disk_data_size", 0) or 
+                stats.get("ram_data_size", 0) or 
+                0
+            )
+            
+            # If no size info available from Qdrant, estimate based on vector count
+            if index_size_bytes == 0 and total_images > 0:
+                # Rough estimate: vectors + metadata
+                # Each vector: dimension * 4 bytes (float32) + ~100 bytes metadata
+                vector_size = settings.embedding_dimension * 4
+                metadata_size = 100  # Approximate metadata size per vector
+                estimated_size = total_images * (vector_size + metadata_size)
+                index_size_bytes = estimated_size
+                logger.debug("Using estimated index size", 
+                           estimated_bytes=index_size_bytes,
+                           vector_size=vector_size,
+                           total_vectors=total_images)
+            
+            logger.debug("Index size calculation", 
+                       disk_data_size=stats.get('disk_data_size'),
+                       ram_data_size=stats.get('ram_data_size'),
+                       calculated_bytes=index_size_bytes,
+                       estimated=index_size_bytes > 0 and stats.get('disk_data_size', 0) == 0)
             
             if total_images > 0:
                 try:
@@ -166,7 +190,8 @@ async def get_artist_analytics(artist_id: str) -> ArtistAnalytics:
                 total_images=0,
                 latest_upload=None,
                 avg_similarity_score=0.0,
-                image_distribution={}
+                image_distribution={},
+                vector_size_mb=0.0
             )
         
         # Calculate statistics and patterns
@@ -176,11 +201,11 @@ async def get_artist_analytics(artist_id: str) -> ArtistAnalytics:
         for point in artist_points:
             if point.payload:
                 # Track upload times if available
-                if 'upload_time' in point.payload:
+                if 'upload_timestamp' in point.payload:
                     try:
-                        upload_time = datetime.fromisoformat(point.payload['upload_time'])
-                        upload_times.append(upload_time)
-                    except (ValueError, TypeError):
+                        timestamp = float(point.payload['upload_timestamp'])
+                        upload_times.append(timestamp)
+                    except (ValueError, TypeError, OSError):
                         pass
                 
                 # Track entry distribution
@@ -189,6 +214,12 @@ async def get_artist_analytics(artist_id: str) -> ArtistAnalytics:
         
         # Find latest upload
         latest_upload = max(upload_times) if upload_times else None
+        
+        # Calculate vector size for this artist
+        # Each vector: dimension * 4 bytes (float32) + ~100 bytes metadata
+        vector_size = settings.embedding_dimension * 4
+        metadata_size = 100  # Approximate metadata size per vector
+        artist_size_bytes = total_images * (vector_size + metadata_size)
         
         # Calculate average similarity score (simplified - compare first few images)
         avg_similarity = 0.0
@@ -230,15 +261,18 @@ async def get_artist_analytics(artist_id: str) -> ArtistAnalytics:
             artist_id=artist_id,
             total_images=total_images,
             entries=len(entry_distribution),
-            avg_similarity=round(avg_similarity, 3)
+            avg_similarity=round(avg_similarity, 3),
+            vector_size_bytes=round(artist_size_bytes, 0)
         )
+        # raise Exception("Debug Exception")
         
         return ArtistAnalytics(
             artist_id=artist_id,
             total_images=total_images,
             latest_upload=latest_upload,
             avg_similarity_score=round(avg_similarity, 3),
-            image_distribution=entry_distribution
+            image_distribution=entry_distribution,
+            vector_size_bytes=artist_size_bytes
         )
         
     except Exception as e:
@@ -247,6 +281,37 @@ async def get_artist_analytics(artist_id: str) -> ArtistAnalytics:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get analytics for artist {artist_id}: {str(e)}"
         ) from e
+
+
+@router.delete("/cache/stats")
+async def clear_stats_cache():
+    """
+    Clear the cached statistics to force fresh calculation on next request.
+    
+    Useful when the database has been updated and you want immediate stats refresh.
+    """
+    logger.info("Clearing stats cache")
+    
+    try:
+        from core.cache import get_cache_service
+        cache_service = await get_cache_service()
+        
+        # Clear the cached stats
+        await cache_service.set("system:stats", None, ttl_seconds=1)
+        
+        logger.info("Stats cache cleared successfully")
+        return {
+            "message": "Stats cache cleared successfully", 
+            "status": "success",
+            "note": "Next stats request will fetch fresh data"
+        }
+        
+    except Exception as e:
+        logger.error("Failed to clear stats cache", error=str(e))
+        return {
+            "message": f"Failed to clear cache: {str(e)}", 
+            "status": "error"
+        }
 
 
 @router.post("/index/rebuild")

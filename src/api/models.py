@@ -88,9 +88,10 @@ class ArtistAnalytics(BaseModel):
     
     artist_id: str
     total_images: int
-    latest_upload: datetime
+    latest_upload: Optional[float]  # Unix timestamp
     avg_similarity_score: float
     image_distribution: dict
+    vector_size_bytes: int
 
 
 # =====================================
