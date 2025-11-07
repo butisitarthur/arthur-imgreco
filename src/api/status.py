@@ -660,7 +660,7 @@ async def get_entry_status(entry_id: str):
 
         return success_response(
             message=f"Analytics retrieved for entry {entry_id}",
-            entry=entry_status.dict(),
+            report=entry_status.dict(),
         )
 
     except Exception as e:
