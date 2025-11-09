@@ -9,7 +9,7 @@ from fastapi import APIRouter, status
 from core.logging import get_logger
 from core.config import settings
 from core.responses import success_response, error_response
-from src.core.models import IndexStatus, ArtistStatus, SystemStatus, EntryStatus, ImageStatus
+from core.models import IndexStatus, ArtistStatus, SystemStatus, EntryStatus, ImageStatus
 
 logger = get_logger(__name__)
 router = APIRouter()

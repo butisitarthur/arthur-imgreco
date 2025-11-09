@@ -4,7 +4,7 @@ Modern API v1 - Main router that includes all endpoint modules.
 
 from fastapi import APIRouter
 
-from src.api import status, index, match
+from api import status, index, match
 
 # Create the main v1 router
 router = APIRouter()

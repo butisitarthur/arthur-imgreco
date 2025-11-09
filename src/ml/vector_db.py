@@ -78,7 +78,9 @@ class QdrantService:
 
         try:
             # Create client with timeout settings
-            self.client = AsyncQdrantClient(url=settings.qdrant_url, timeout=30.0)
+            self.client = AsyncQdrantClient(
+                url=settings.qdrant_url, api_key=settings.qdrant_api_key, timeout=30.0
+            )
 
             # Test connection with better error handling
             try:

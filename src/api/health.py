@@ -8,7 +8,7 @@ from datetime import datetime
 from core.config import settings
 from core.logging import get_logger
 from core.responses import success_response, error_response
-from src.core.models import HealthResponse
+from core.models import HealthResponse
 
 logger = get_logger(__name__)
 router = APIRouter()

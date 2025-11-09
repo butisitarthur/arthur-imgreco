@@ -11,7 +11,7 @@ from qdrant_client.models import PointStruct, OptimizersConfigDiff
 from core.logging import get_logger
 from core.config import settings
 from core.responses import success_response, error_response
-from src.core.models import AddImageRequest, BatchImageRequest, ImageResponse, BatchImageResponse
+from core.models import AddImageRequest, BatchImageRequest, ImageResponse, BatchImageResponse
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -647,15 +647,14 @@ async def rebuild_index():
             orig_opt_config = collection_info.config.optimizer_config
             logger.info(f"Original optimizer config: {orig_opt_config}")
 
-            # Get the indexing threshold to preserve
-            indexing_threshold = 20000  # Default
-            print(">>>>", orig_opt_config)
-            if (
-                hasattr(orig_opt_config, "indexing_threshold")
-                and orig_opt_config.indexing_threshold is not None
-            ):
-                indexing_threshold = orig_opt_config.indexing_threshold
-                logger.info(f"Will preserve indexing_threshold: {indexing_threshold}")
+            # # Get the indexing threshold to preserve
+            # indexing_threshold = 20000  # Default
+            # if (
+            #     hasattr(orig_opt_config, "indexing_threshold")
+            #     and orig_opt_config.indexing_threshold is not None
+            # ):
+            #     indexing_threshold = orig_opt_config.indexing_threshold
+            #     logger.info(f"Will preserve indexing_threshold: {indexing_threshold}")
 
             # For now, create collection with defaults and then update settings
             await qdrant_service.client.create_collection(

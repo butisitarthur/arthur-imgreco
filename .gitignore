@@ -233,8 +233,8 @@ $RECYCLE.BIN/
 docker-compose.override.yml
 docker-compose.*.yml
 
-# Arthur Image Recognition 2.0 Specific
-# ======================================
+# Project Specific
+# ================
 
 # ML Models and Cache
 models/

@@ -24,10 +24,11 @@ class Settings(BaseSettings):
     max_upload_size: int = Field(default=100 * 1024 * 1024, env="MAX_UPLOAD_SIZE")  # 100MB
 
     # Redis
-    redis_url: str = Field(env="REDIS_URL")
+    redis_url: str = Field(default="", env="REDIS_URL")
 
     # Qdrant
-    qdrant_url: str = Field(env="QDRANT_URL")
+    qdrant_url: str = Field(default="", env="QDRANT_URL")
+    qdrant_api_key: str = Field(default="", env="QDRANT_API_KEY")
 
     # ML Model Configuration
     clip_model_name: str = Field(default="ViT-B/32", env="CLIP_MODEL_NAME")

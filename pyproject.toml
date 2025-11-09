@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "arthur-imgreco"
-version = "2.0.0"
+version = "1.0.0"
 description = "Modern, scalable image recognition server with vector similarity search"
 authors = ["Arthur Team <team@arthur.io>"]
 readme = "README.md"

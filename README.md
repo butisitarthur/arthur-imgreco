@@ -1,7 +1,17 @@
 <!--
-docker-compose up -d postgres redis qdrant
-poetry shell
-PYTHONPATH=src uvicorn main:app --reload --host 0.0.0.0 --port 9000 --reload
+
+Run compose:
+    docker-compose up -d redis qdrant
+    poetry shell
+    PYTHONPATH=src uvicorn main:app --reload --host 0.0.0.0 --port 9000 --reload
+
+Exit venv:
+    exit
+
+Run docker build:
+    docker build -t imgreco:test .
+    docker run imgreco:test
+
 -->
 
 # Arthur Image Recognition <!-- omit in toc -->
