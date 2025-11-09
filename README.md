@@ -15,8 +15,6 @@ PYTHONPATH=src uvicorn main:app --reload --host 0.0.0.0 --port 9000 --reload
 
 Arthur Image Recognition 2.0 is an AI-powered image recognition and similarity search system. Built with modern machine learning technologies, it provides semantic image understanding using CLIP embeddings and high-performance vector similarity search.
 
-<sub>Built with Claude Sonnet 4, Nov 2025</sub>
-
 <br>
 
 [Developer guide](docs/DEVELOPER_GUIDE.md) - Feed to AI for further development tasks
@@ -24,46 +22,46 @@ Arthur Image Recognition 2.0 is an AI-powered image recognition and similarity s
 <details>
 <summary markdown>Table of contents</summary>
 
--   [Quick Start](#quick-start)
-    -   [Prerequisites](#prerequisites)
-    -   [Using Docker (Recommended)](#using-docker-recommended)
--   [Adding Images to the Database](#adding-images-to-the-database)
-    -   [Adding Individual Images](#adding-individual-images)
-    -   [Batch Image Upload](#batch-image-upload)
-    -   [Monitoring and Management](#monitoring-and-management)
-    -   [Similarity Search](#similarity-search)
-    -   [Batch Operations with Hierarchical IDs](#batch-operations-with-hierarchical-ids)
-    -   [Legacy Compatibility](#legacy-compatibility)
-    -   [Local Development](#local-development)
--   [API Reference](#api-reference)
-    -   [Modern API v1 Endpoints (Recommended)](#modern-api-v1-endpoints-recommended)
-    -   [Legacy Compatibility Endpoints](#legacy-compatibility-endpoints)
--   [Database Requirements](#database-requirements)
-    -   [Qdrant Vector Database (Primary Storage)](#qdrant-vector-database-primary-storage)
-    -   [Redis Cache (Optional but Recommended)](#redis-cache-optional-but-recommended)
--   [Architecture](#architecture)
-    -   [Tech Stack](#tech-stack)
--   [Deployment](#deployment)
-    -   [Production Docker Setup](#production-docker-setup)
-    -   [Kubernetes Deployment](#kubernetes-deployment)
-    -   [Environment Variables](#environment-variables)
--   [Performance \& Scaling](#performance--scaling)
-    -   [Expected Performance](#expected-performance)
-    -   [Scaling Recommendations](#scaling-recommendations)
-    -   [Resource Requirements](#resource-requirements)
--   [Monitoring \& Observability](#monitoring--observability)
-    -   [Health Checks](#health-checks)
-    -   [Metrics \& Monitoring](#metrics--monitoring)
-    -   [Alerting](#alerting)
--   [Development](#development)
-    -   [Running Tests](#running-tests)
-    -   [Code Quality](#code-quality)
-    -   [Adding New Features](#adding-new-features)
--   [Troubleshooting](#troubleshooting)
-    -   [Common Issues](#common-issues)
-    -   [Getting Help](#getting-help)
--   [License](#license)
--   [Contributing](#contributing)
+- [Quick Start](#quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Using Docker (Recommended)](#using-docker-recommended)
+- [Adding Images to the Database](#adding-images-to-the-database)
+  - [Adding Individual Images](#adding-individual-images)
+  - [Batch Image Upload](#batch-image-upload)
+  - [Monitoring and Management](#monitoring-and-management)
+  - [Similarity Search](#similarity-search)
+  - [Batch Operations with Hierarchical IDs](#batch-operations-with-hierarchical-ids)
+  - [Legacy Compatibility](#legacy-compatibility)
+  - [Local Development](#local-development)
+- [API Reference](#api-reference)
+  - [Modern API v1 Endpoints (Recommended)](#modern-api-v1-endpoints-recommended)
+  - [Legacy Compatibility Endpoints](#legacy-compatibility-endpoints)
+- [Database Requirements](#database-requirements)
+  - [Qdrant Vector Database (Primary Storage)](#qdrant-vector-database-primary-storage)
+  - [Redis Cache (Optional but Recommended)](#redis-cache-optional-but-recommended)
+- [Architecture](#architecture)
+  - [Tech Stack](#tech-stack)
+- [Deployment](#deployment)
+  - [Production Docker Setup](#production-docker-setup)
+  - [Kubernetes Deployment](#kubernetes-deployment)
+  - [Environment Variables](#environment-variables)
+- [Performance \& Scaling](#performance--scaling)
+  - [Expected Performance](#expected-performance)
+  - [Scaling Recommendations](#scaling-recommendations)
+  - [Resource Requirements](#resource-requirements)
+- [Monitoring \& Observability](#monitoring--observability)
+  - [Health Checks](#health-checks)
+  - [Metrics \& Monitoring](#metrics--monitoring)
+  - [Alerting](#alerting)
+- [Development](#development)
+  - [Running Tests](#running-tests)
+  - [Code Quality](#code-quality)
+  - [Adding New Features](#adding-new-features)
+- [Troubleshooting](#troubleshooting)
+  - [Common Issues](#common-issues)
+  - [Getting Help](#getting-help)
+- [License](#license)
+- [Contributing](#contributing)
 
 </details>
 
@@ -838,4 +836,4 @@ export LOG_LEVEL=DEBUG
 
 ---
 
-**Built with ❤️ for the Arthur team**
+<sub>Built with Claude Sonnet 4, Nov 2025</sub>

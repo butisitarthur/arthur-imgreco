@@ -4,9 +4,8 @@ Image Management API endpoints - Adding, updating, deleting images from the inde
 
 import time
 from datetime import datetime
-from typing import Optional
 
-from fastapi import APIRouter, status, File, Form, UploadFile
+from fastapi import APIRouter, status, Request
 from qdrant_client.models import PointStruct, OptimizersConfigDiff
 
 from core.logging import get_logger
@@ -21,179 +20,7 @@ router = APIRouter()
 # BASE PATH: /api/v1/index
 
 
-@router.post("/add_file", summary="Add single image from file")
-async def upload_image_file(
-    vector_id: str = Form(..., description="UUID for this vector in the database"),
-    artist_id: str = Form(..., description="Unique artist identifier"),
-    image_id: str = Form(..., description="Unique image identifier"),
-    imgFile: UploadFile = File(..., description="Image file to upload"),
-    title: Optional[str] = Form(None),
-    description: Optional[str] = Form(None),
-):
-    """
-    Upload an image file directly instead of providing a URL.
-
-    Useful for images that are not publicly accessible via URL.
-    """
-    import io
-    from PIL import Image
-
-    from ml.clip_service import clip_service
-    from ml.vector_db import ImageMetadata as VectorImageMetadata, qdrant_service
-
-    start_time = time.time()
-
-    logger.info(
-        "Uploading image file",
-        artist_id=artist_id,
-        image_id=image_id,
-        vector_id=vector_id,
-        filename=imgFile.filename,
-        content_type=imgFile.content_type,
-    )
-
-    try:
-        # Step 1: Validate file and read content
-        if not imgFile.filename:
-            raise ValueError("No filename provided")
-
-        # Check file size (limit to 10MB)
-        content = await imgFile.read()
-        if not content:
-            raise ValueError("Empty file provided")
-
-        if len(content) > 10 * 1024 * 1024:  # 10MB limit
-            raise ValueError("File too large (max 10MB)")
-
-        # Step 2: Validate image format
-        try:
-            image = Image.open(io.BytesIO(content))
-            image.verify()  # Verify it's a valid image
-
-            # Get basic image info for metadata
-            image = Image.open(io.BytesIO(content))  # Reopen after verify
-            image_info = dict(
-                format=image.format,
-                size=f"{image.width}x{image.height}",
-                mode=image.mode,
-                file_size=len(content),
-                filename=imgFile.filename,
-            )
-
-            logger.info("Image file validated", image_info=image_info, vector_id=vector_id)
-
-        except Exception as e:
-            raise ValueError(f"Invalid image format: {str(e)}") from e
-
-        # Step 3: Generate CLIP embedding from image data
-        try:
-            # Create a temporary BytesIO for CLIP processing
-            image_buffer = io.BytesIO(content)
-            embedding = await clip_service.generate_embedding(image_buffer)
-
-            logger.info(
-                "CLIP embedding generated from file",
-                embedding_shape=embedding.shape,
-                embedding_norm=float(embedding.dot(embedding) ** 0.5),
-                vector_id=vector_id,
-            )
-
-        except Exception as e:
-            raise ValueError(f"Embedding generation failed: {str(e)}") from e
-
-        # Step 4: Store embedding in Qdrant
-        try:
-            vector_metadata = VectorImageMetadata(
-                artist_id=artist_id,
-                entry_id=image_id,
-                view_id="default",
-                image_url=f"file://{imgFile.filename}",  # Use file:// scheme for uploaded files
-                upload_timestamp=time.time(),
-                embedding_model=f"CLIP-{settings.clip_model_name}",
-            )
-
-            # Use the provided UUID for the vector ID
-            stored_vector_id = await qdrant_service.add_image_embedding(
-                embedding=embedding, metadata=vector_metadata, vector_id=vector_id
-            )
-
-            logger.info(
-                "File embedding stored in vector database",
-                vector_id=stored_vector_id,
-                filename=imgFile.filename,
-            )
-
-        except Exception as e:
-            raise ValueError(f"Vector database storage failed: {str(e)}") from e
-
-        processing_time = (time.time() - start_time) * 1000
-
-        image_response = ImageResponse(
-            vector_id=vector_id,
-            artist_id=artist_id,
-            entry_id=image_id,  # image_id parameter becomes entry_id in response
-            view_id="default",  # File uploads don't have hierarchical structure
-            hierarchical_id=None,
-            status="success",
-            embedding_generated=True,
-            processing_time_ms=processing_time,
-            message=f"Successfully uploaded and indexed file {imgFile.filename} (embedding: {embedding.shape})",
-        )
-
-        return success_response(
-            message=f"Successfully uploaded and indexed file {imgFile.filename}",
-            image=image_response.dict(),
-        )
-
-    except ValueError as validation_error:
-        # Handle validation errors
-        logger.error(
-            "File upload validation error",
-            artist_id=artist_id,
-            image_id=image_id,
-            vector_id=vector_id,
-            filename=imgFile.filename,
-            error=str(validation_error),
-        )
-
-        processing_time = (time.time() - start_time) * 1000
-
-        image_response = ImageResponse(
-            vector_id=vector_id,
-            artist_id=artist_id,
-            entry_id=image_id,
-            view_id="default",
-            hierarchical_id=None,
-            status="error",
-            embedding_generated=False,
-            processing_time_ms=processing_time,
-            message=f"Validation error: {str(validation_error)}",
-        )
-
-        return error_response(
-            message="File upload validation error",
-            details=str(validation_error),
-            image=image_response.dict(),
-        )
-
-    except Exception as e:
-        logger.error(
-            "File upload failed",
-            artist_id=artist_id,
-            image_id=image_id,
-            vector_id=vector_id,
-            filename=imgFile.filename,
-            error=str(e),
-            exc_info=True,
-        )
-        return error_response(
-            message="Failed to upload image",
-            details=str(e),
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-@router.post("/add_url", summary="Add single image from URL")
+@router.post("/", summary="Add single image from URL")
 async def add_image_from_url(request: AddImageRequest):
     """
     Add a single image to the index.
@@ -370,7 +197,7 @@ async def add_image_from_url(request: AddImageRequest):
         )
 
 
-@router.post("/add_url/batch", summary="Add multiple images from URLs")
+@router.post("/batch", summary="Add multiple images from URLs")
 async def add_images_from_url_batch(request: BatchImageRequest):
     """
     Add multiple images to the index efficiently.
@@ -500,101 +327,168 @@ async def add_images_from_url_batch(request: BatchImageRequest):
         )
 
 
-@router.delete("/{image_id}", summary="Delete image from index")
-async def delete_image(entry_id: str):
+@router.delete("/artist/{target_id}", summary="Delete artist images from index by artist_id")
+@router.delete("/entry/{target_id}", summary="Delete entry images from index by entry_id")
+@router.delete("/view/{target_id}", summary="Delete single image from index by view_id")
+@router.delete("/vector/{target_id}", summary="Delete images from index by vector_id")
+async def delete_image(request: Request, target_id: str):
     """
     Delete an image from the index.
 
     This will remove both the vector embedding and metadata.
-    Can delete by either vector_id (UUID) or image_id.
+    Can delete by either view_id or vector_id (UUID).
     """
     from ml.vector_db import qdrant_service
 
-    logger.info("Deleting image", entry_id=entry_id)
+    # logger.info("Deleting image", entry_id=view_id)
+
+    # String & dict for logging and response
+    identifier_str = ""
+    identifier_dict = {}
+
+    # Figure out the id type
+    view_id = None
+    entry_id = None
+    artist_id = None
+    vector_id = None  # For robustness, not used because we don't store the vector_id in frontend
+    path = request.url.path
+    if "/artist/" in path:
+        artist_id = target_id
+        identifier_str = f"artist_id: {artist_id}"
+        identifier_dict["artist_id"] = artist_id
+    elif "/entry/" in path:
+        entry_id = target_id
+        identifier_str = f"entry_id: {entry_id}"
+        identifier_dict["entry_id"] = entry_id
+    if "/view/" in path:
+        view_id = target_id
+        identifier_str = f"view_id: {view_id}"
+        identifier_dict["view_id"] = view_id
+    elif "/vector/" in path:
+        vector_id = target_id
+        identifier_str = f"vector_id: {vector_id}"
+        identifier_dict["vector_id"] = vector_id
+
+    logger.info(
+        "Deleting image",
+        entry_id=entry_id,
+        artist_id=artist_id,
+        view_id=view_id,
+        vector_id=vector_id,
+    )
 
     try:
         # Connect to Qdrant
         await qdrant_service.connect()
 
-        # Try to find and delete the image by vector_id first (assuming image_id might be vector_id)
+        # Option A: Try deleting by metadata ids
+        # vector_id requires different approach below
+        if artist_id or entry_id or view_id:
+            try:
+                search_results = []
+                # Artist
+                if artist_id is not None:
+                    search_results = await qdrant_service.client.scroll(
+                        collection_name=qdrant_service.collection_name,
+                        scroll_filter={
+                            "must": [{"key": "artist_id", "match": {"value": artist_id}}]
+                        },
+                        limit=10000,
+                    )
+
+                # Entry
+                elif entry_id is not None:
+                    search_results = await qdrant_service.client.scroll(
+                        collection_name=qdrant_service.collection_name,
+                        scroll_filter={"must": [{"key": "entry_id", "match": {"value": entry_id}}]},
+                        limit=100,
+                    )
+
+                # View
+                if view_id is not None:
+                    search_results = await qdrant_service.client.scroll(
+                        collection_name=qdrant_service.collection_name,
+                        scroll_filter={"must": [{"key": "view_id", "match": {"value": view_id}}]},
+                        limit=1,
+                    )
+
+                # --> No points found
+                if not search_results[0]:
+                    logger.warning("Image not found for deletion", **identifier_dict)
+                    return error_response(
+                        message="Image not found",
+                        details=f"No image found with {identifier_str}",
+                        status_code=status.HTTP_404_NOT_FOUND,
+                    )
+
+                # Delete all matching vectors
+                vector_ids_to_delete = [point.id for point in search_results[0]]
+
+                deleted = await qdrant_service.client.delete(
+                    collection_name=qdrant_service.collection_name,
+                    points_selector=vector_ids_to_delete,
+                )
+
+                # Log
+                logger.info(
+                    f"{len(vector_ids_to_delete)} images deleted by {identifier_str} search",
+                    **identifier_dict,
+                    vector_ids=vector_ids_to_delete,
+                    operation_info=deleted,
+                )
+
+                # Compile success response
+                return success_response(
+                    message=f"Successfully deleted {len(vector_ids_to_delete)} vector(s) for {identifier_str}",
+                    deletion={
+                        "deleted_vector_ids": vector_ids_to_delete,
+                        "deleted_count": len(vector_ids_to_delete),
+                        **identifier_dict,
+                    },
+                )
+
+            except Exception as view_id_error:
+                logger.error(
+                    f"Failed to delete by {identifier_str} search",
+                    **identifier_dict,
+                    error=str(view_id_error),
+                )
+
+        # Option B: Delete by vector_id
         try:
             # Try direct deletion by vector_id
             deleted = await qdrant_service.client.delete(
-                collection_name=qdrant_service.collection_name, points_selector=[entry_id]
+                collection_name=qdrant_service.collection_name, points_selector=[view_id]
             )
 
             if deleted:
-                logger.info(
-                    "Image deleted by vector_id", vector_id=entry_id, operation_info=deleted
-                )
+                logger.info("Image deleted by vector_id", vector_id=view_id, operation_info=deleted)
 
                 return {
                     "status": "success",
-                    "message": f"Successfully deleted image with ID: {entry_id}",
-                    "deleted_vector_id": entry_id,
+                    "message": f"Successfully deleted image with ID: {view_id}",
+                    "deleted_vector_id": view_id,
                 }
 
         except Exception as vector_delete_error:
             logger.warning(
                 "Failed to delete by vector_id, trying by metadata search",
-                entry_id=entry_id,
+                vector_id=vector_id,
                 error=str(vector_delete_error),
             )
 
-        # If direct deletion failed, search by metadata (entry_id)
-        try:
-            # Search for vectors with matching entry_id in metadata
-            search_results = await qdrant_service.client.scroll(
-                collection_name=qdrant_service.collection_name,
-                scroll_filter={"must": [{"key": "entry_id", "match": {"value": entry_id}}]},
-                limit=10,  # Should be only one, but allow for multiple matches
-            )
-
-            if not search_results[0]:  # No points found
-                logger.warning("Image not found for deletion", entry_id=entry_id)
-                return error_response(
-                    message="Image not found",
-                    details=f"No image found with ID: {entry_id}",
-                    status_code=status.HTTP_404_NOT_FOUND,
-                )
-
-            # Delete all matching vectors
-            vector_ids_to_delete = [point.id for point in search_results[0]]
-
-            deleted = await qdrant_service.client.delete(
-                collection_name=qdrant_service.collection_name, points_selector=vector_ids_to_delete
-            )
-
-            logger.info(
-                "Images deleted by metadata search",
-                entry_id=entry_id,
-                vector_ids=vector_ids_to_delete,
-                operation_info=deleted,
-            )
-
-            return success_response(
-                message=f"Successfully deleted {len(vector_ids_to_delete)} vector(s) for image: {entry_id}",
-                deletion={
-                    "deleted_vector_ids": vector_ids_to_delete,
-                    "deleted_count": len(vector_ids_to_delete),
-                    "entry_id": entry_id,
-                },
-            )
-
-        except Exception as metadata_error:
-            logger.error(
-                "Failed to delete by metadata search", entry_id=entry_id, error=str(metadata_error)
-            )
             return error_response(
                 message="Could not find or delete image",
-                details=str(metadata_error),
+                details=vector_delete_error,
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     except Exception as e:
-        logger.error("Failed to delete image", entry_id=entry_id, error=str(e), exc_info=True)
+        logger.error(
+            f"Failed to delete {identifier_str}", **identifier_dict, error=str(e), exc_info=True
+        )
         return error_response(
-            message="Failed to delete image",
+            message=f"Failed to delete {identifier_str}",
             details=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

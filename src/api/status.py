@@ -813,7 +813,7 @@ async def get_image_status(view_id: str):
             )
             return error_response(
                 message="Could not find image",
-                details=f"view_id lookup: {view_id_error}\nvectore_id lookup: {vector_lookup_error}",
+                details=f"view_id lookup: {view_id_error}\nvector_id lookup: {vector_lookup_error}",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

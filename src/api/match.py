@@ -326,7 +326,7 @@ async def find_similar_by_id(
 
     logger.info(
         "Find similar by ID",
-        image_id=entry_id,
+        entry_id=entry_id,
         max_results=max_results,
         threshold=similarity_threshold,
     )
