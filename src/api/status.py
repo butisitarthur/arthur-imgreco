@@ -946,6 +946,133 @@ async def get_model_info():
         return error_response(message="Failed to retrieve model information", details=str(e))
 
 
+@router.get("/latest-entries", summary="Get latest entries")
+async def get_latest_entries(limit: int = 10, after_timestamp: float = None):
+    """
+    Get the most recent entries added to the vector database.
+
+    Returns the last N entries based on upload timestamp, with cursor-based pagination.
+
+    Args:
+        limit: Number of entries to return (default: 10, max: 500)
+        after_timestamp: Return entries before this timestamp (for pagination)
+
+    Note: Use after_timestamp for efficient pagination. The response includes the timestamp
+    of the last entry for use in the next request.
+    """
+    # Enforce max limit to prevent excessive queries
+    limit = min(limit, 500)
+
+    logger.info(
+        "Getting latest entries",
+        limit=limit,
+        after_timestamp=after_timestamp,
+    )
+
+    try:
+        from ml.vector_db import qdrant_service
+
+        await qdrant_service.connect()
+
+        # Build filter for efficient querying
+        scroll_filter = None
+        if after_timestamp is not None:
+            # Only get entries with timestamp less than after_timestamp
+            scroll_filter = {
+                "must": [{"key": "upload_timestamp", "range": {"lt": after_timestamp}}]
+            }
+
+        # Fetch more than requested to account for deduplication
+        fetch_limit = limit * 2
+
+        # Scroll through points with filtering and descending order
+        from qdrant_client.models import OrderBy, Direction
+
+        scroll_result = await qdrant_service.client.scroll(
+            collection_name=qdrant_service.collection_name,
+            scroll_filter=scroll_filter,
+            limit=fetch_limit,
+            with_payload=True,
+            with_vectors=False,
+            order_by=OrderBy(key="upload_timestamp", direction=Direction.DESC),
+        )
+
+        points = scroll_result[0]
+
+        if not points:
+            logger.info("No entries found in database")
+            return success_response(
+                message="No entries found",
+                entries=[],
+                has_more=False,
+                next_cursor=None,
+            )
+
+        # Extract entries with timestamps
+        entries = []
+        seen_entry_ids = set()
+
+        for point in points:
+            if point.payload:
+                entry_id = point.payload.get("entry_id")
+
+                # Deduplicate by entry_id (multiple views per entry)
+                if entry_id and entry_id in seen_entry_ids:
+                    continue
+                if entry_id:
+                    seen_entry_ids.add(entry_id)
+
+                entry = {
+                    "vector_id": str(point.id),
+                    "artist_id": point.payload.get("artist_id"),
+                    "entry_id": entry_id,
+                    "view_id": point.payload.get("view_id"),
+                    "image_url": point.payload.get("image_url"),
+                    "upload_timestamp": point.payload.get("upload_timestamp"),
+                    "embedding_model": point.payload.get("embedding_model"),
+                }
+                entries.append(entry)
+
+        # Entries are already sorted by Qdrant in descending order
+        # Just separate those with/without timestamps for consistency
+        entries_with_timestamp = [e for e in entries if e.get("upload_timestamp")]
+        entries_without_timestamp = [e for e in entries if not e.get("upload_timestamp")]
+
+        sorted_entries = entries_with_timestamp + entries_without_timestamp
+
+        # Get the requested number of entries
+        latest_entries = sorted_entries[:limit]
+        has_more = len(sorted_entries) > limit
+
+        # Get cursor for next page (timestamp of last entry)
+        next_cursor = None
+        if latest_entries and has_more:
+            last_entry = latest_entries[-1]
+            next_cursor = last_entry.get("upload_timestamp")
+
+        logger.info(
+            "Latest entries retrieved",
+            returned_count=len(latest_entries),
+            has_more=has_more,
+            next_cursor=next_cursor,
+        )
+
+        return success_response(
+            message=f"Retrieved {len(latest_entries)} latest entries",
+            entries=latest_entries,
+            has_more=has_more,
+            next_cursor=next_cursor,
+            pagination_hint="Use next_cursor as after_timestamp parameter for next page",
+        )
+
+    except Exception as e:
+        logger.error("Failed to get latest entries", error=str(e))
+        return error_response(
+            message="Failed to retrieve latest entries",
+            details=str(e),
+        )
+
+
 @router.delete("/clear-cache", summary="Clear status cache")
 async def clear_status_cache():
     """

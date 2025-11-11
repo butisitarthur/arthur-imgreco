@@ -327,6 +327,69 @@ async def add_images_from_url_batch(request: BatchImageRequest):
         )
 
 
+async def _delete_by_id(
+    qdrant_service,
+    target_id: str,
+    id_type: str,
+):
+    """
+    Shared deletion logic for single or batch operations.
+
+    Args:
+        qdrant_service: The Qdrant service instance
+        target_id: The ID to delete
+        id_type: Type of ID ('artist_id', 'entry_id', 'view_id', or 'vector_id')
+
+    Returns:
+        Tuple of (success: bool, deleted_count: int, vector_ids: list, error: str or None)
+    """
+    try:
+        # Determine filter key and limit based on ID type
+        filter_config = {
+            "artist_id": ("artist_id", 10000),
+            "entry_id": ("entry_id", 100),
+            "view_id": ("view_id", 1),
+            "vector_id": (None, 0),  # Special case: direct deletion
+        }
+
+        filter_key, limit = filter_config.get(id_type, (None, 0))
+
+        # For vector_id, do direct deletion
+        if id_type == "vector_id":
+            deleted = await qdrant_service.client.delete(
+                collection_name=qdrant_service.collection_name, points_selector=[target_id]
+            )
+            if deleted:
+                return True, 1, [target_id], None
+            else:
+                return False, 0, [], "Vector ID not found"
+
+        # For metadata-based deletion
+        if filter_key:
+            search_results = await qdrant_service.client.scroll(
+                collection_name=qdrant_service.collection_name,
+                scroll_filter={"must": [{"key": filter_key, "match": {"value": target_id}}]},
+                limit=limit,
+            )
+
+            if not search_results[0]:
+                return False, 0, [], f"No vectors found for {id_type}: {target_id}"
+
+            vector_ids_to_delete = [point.id for point in search_results[0]]
+
+            deleted = await qdrant_service.client.delete(
+                collection_name=qdrant_service.collection_name,
+                points_selector=vector_ids_to_delete,
+            )
+
+            return True, len(vector_ids_to_delete), vector_ids_to_delete, None
+
+        return False, 0, [], f"Invalid ID type: {id_type}"
+
+    except Exception as e:
+        return False, 0, [], str(e)
+
+
 @router.delete("/artist/{target_id}", summary="Delete artist images from index by artist_id")
 @router.delete("/entry/{target_id}", summary="Delete entry images from index by entry_id")
 @router.delete("/view/{target_id}", summary="Delete single image from index by view_id")
@@ -336,159 +399,204 @@ async def delete_image(request: Request, target_id: str):
     Delete an image from the index.
 
     This will remove both the vector embedding and metadata.
-    Can delete by either view_id or vector_id (UUID).
+    Can delete by artist_id, entry_id, view_id, or vector_id (UUID).
     """
     from ml.vector_db import qdrant_service
 
-    # logger.info("Deleting image", entry_id=view_id)
-
-    # String & dict for logging and response
-    identifier_str = ""
-    identifier_dict = {}
-
-    # Figure out the id type
-    view_id = None
-    entry_id = None
-    artist_id = None
-    vector_id = None  # For robustness, not used because we don't store the vector_id in frontend
+    # Determine ID type from path
     path = request.url.path
     if "/artist/" in path:
-        artist_id = target_id
-        identifier_str = f"artist_id: {artist_id}"
-        identifier_dict["artist_id"] = artist_id
+        id_type = "artist_id"
     elif "/entry/" in path:
-        entry_id = target_id
-        identifier_str = f"entry_id: {entry_id}"
-        identifier_dict["entry_id"] = entry_id
-    if "/view/" in path:
-        view_id = target_id
-        identifier_str = f"view_id: {view_id}"
-        identifier_dict["view_id"] = view_id
+        id_type = "entry_id"
+    elif "/view/" in path:
+        id_type = "view_id"
     elif "/vector/" in path:
-        vector_id = target_id
-        identifier_str = f"vector_id: {vector_id}"
-        identifier_dict["vector_id"] = vector_id
+        id_type = "vector_id"
+    else:
+        return error_response(
+            message="Invalid delete path",
+            details=f"Path: {path}",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
-    logger.info(
-        "Deleting image",
-        entry_id=entry_id,
-        artist_id=artist_id,
-        view_id=view_id,
-        vector_id=vector_id,
-    )
+    logger.info(f"Deleting image by {id_type}", id_type=id_type, target_id=target_id)
 
     try:
-        # Connect to Qdrant
         await qdrant_service.connect()
 
-        # Option A: Try deleting by metadata ids
-        # vector_id requires different approach below
-        if artist_id or entry_id or view_id:
-            try:
-                search_results = []
-                # Artist
-                if artist_id is not None:
-                    search_results = await qdrant_service.client.scroll(
-                        collection_name=qdrant_service.collection_name,
-                        scroll_filter={
-                            "must": [{"key": "artist_id", "match": {"value": artist_id}}]
-                        },
-                        limit=10000,
-                    )
+        success, deleted_count, vector_ids, error = await _delete_by_id(
+            qdrant_service, target_id, id_type
+        )
 
-                # Entry
-                elif entry_id is not None:
-                    search_results = await qdrant_service.client.scroll(
-                        collection_name=qdrant_service.collection_name,
-                        scroll_filter={"must": [{"key": "entry_id", "match": {"value": entry_id}}]},
-                        limit=100,
-                    )
-
-                # View
-                if view_id is not None:
-                    search_results = await qdrant_service.client.scroll(
-                        collection_name=qdrant_service.collection_name,
-                        scroll_filter={"must": [{"key": "view_id", "match": {"value": view_id}}]},
-                        limit=1,
-                    )
-
-                # --> No points found
-                if not search_results[0]:
-                    logger.warning("Image not found for deletion", **identifier_dict)
-                    return error_response(
-                        message="Image not found",
-                        details=f"No image found with {identifier_str}",
-                        status_code=status.HTTP_404_NOT_FOUND,
-                    )
-
-                # Delete all matching vectors
-                vector_ids_to_delete = [point.id for point in search_results[0]]
-
-                deleted = await qdrant_service.client.delete(
-                    collection_name=qdrant_service.collection_name,
-                    points_selector=vector_ids_to_delete,
-                )
-
-                # Log
-                logger.info(
-                    f"{len(vector_ids_to_delete)} images deleted by {identifier_str} search",
-                    **identifier_dict,
-                    vector_ids=vector_ids_to_delete,
-                    operation_info=deleted,
-                )
-
-                # Compile success response
-                return success_response(
-                    message=f"Successfully deleted {len(vector_ids_to_delete)} vector(s) for {identifier_str}",
-                    deletion={
-                        "deleted_vector_ids": vector_ids_to_delete,
-                        "deleted_count": len(vector_ids_to_delete),
-                        **identifier_dict,
-                    },
-                )
-
-            except Exception as view_id_error:
-                logger.error(
-                    f"Failed to delete by {identifier_str} search",
-                    **identifier_dict,
-                    error=str(view_id_error),
-                )
-
-        # Option B: Delete by vector_id
-        try:
-            # Try direct deletion by vector_id
-            deleted = await qdrant_service.client.delete(
-                collection_name=qdrant_service.collection_name, points_selector=[view_id]
+        if success:
+            logger.info(
+                f"Successfully deleted {deleted_count} vectors",
+                id_type=id_type,
+                target_id=target_id,
+                deleted_count=deleted_count,
             )
 
-            if deleted:
-                logger.info("Image deleted by vector_id", vector_id=view_id, operation_info=deleted)
-
-                return {
-                    "status": "success",
-                    "message": f"Successfully deleted image with ID: {view_id}",
-                    "deleted_vector_id": view_id,
-                }
-
-        except Exception as vector_delete_error:
+            return success_response(
+                message=f"Successfully deleted {deleted_count} vector(s) for {id_type}: {target_id}",
+                deletion={
+                    "deleted_vector_ids": vector_ids,
+                    "deleted_count": deleted_count,
+                    id_type: target_id,
+                },
+            )
+        else:
             logger.warning(
-                "Failed to delete by vector_id, trying by metadata search",
-                vector_id=vector_id,
-                error=str(vector_delete_error),
+                f"Failed to delete by {id_type}",
+                id_type=id_type,
+                target_id=target_id,
+                error=error,
             )
-
             return error_response(
-                message="Could not find or delete image",
-                details=vector_delete_error,
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message=f"Failed to delete by {id_type}",
+                details=error,
+                status_code=(
+                    status.HTTP_404_NOT_FOUND
+                    if "not found" in error.lower()
+                    else status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
             )
 
     except Exception as e:
         logger.error(
-            f"Failed to delete {identifier_str}", **identifier_dict, error=str(e), exc_info=True
+            f"Failed to delete by {id_type}",
+            id_type=id_type,
+            target_id=target_id,
+            error=str(e),
+            exc_info=True,
         )
         return error_response(
-            message=f"Failed to delete {identifier_str}",
+            message=f"Failed to delete by {id_type}",
+            details=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@router.delete("/batch", summary="Delete multiple images in batch")
+async def delete_images_batch(
+    request: dict,
+):
+    """
+    Delete multiple images in batch.
+
+    Request body should contain a list of deletions with id_type and target_id:
+    {
+        "deletions": [
+            {"id_type": "view_id", "target_id": "image123"},
+            {"id_type": "entry_id", "target_id": "entry456"},
+            {"id_type": "artist_id", "target_id": "artist789"}
+        ]
+    }
+    """
+    from ml.vector_db import qdrant_service
+
+    deletions = request.get("deletions", [])
+
+    if not deletions:
+        return error_response(
+            message="No deletions specified",
+            details="Request must include 'deletions' array",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    logger.info("Starting batch deletion", deletion_count=len(deletions))
+
+    try:
+        await qdrant_service.connect()
+
+        results = []
+        total_deleted = 0
+        successful = 0
+        failed = 0
+
+        for deletion in deletions:
+            id_type = deletion.get("id_type")
+            target_id = deletion.get("target_id")
+
+            if not id_type or not target_id:
+                results.append(
+                    {
+                        "id_type": id_type,
+                        "target_id": target_id,
+                        "success": False,
+                        "deleted_count": 0,
+                        "error": "Missing id_type or target_id",
+                    }
+                )
+                failed += 1
+                continue
+
+            # Validate id_type
+            if id_type not in ["artist_id", "entry_id", "view_id", "vector_id"]:
+                results.append(
+                    {
+                        "id_type": id_type,
+                        "target_id": target_id,
+                        "success": False,
+                        "deleted_count": 0,
+                        "error": f"Invalid id_type: {id_type}",
+                    }
+                )
+                failed += 1
+                continue
+
+            # Use shared deletion logic
+            success, deleted_count, vector_ids, error = await _delete_by_id(
+                qdrant_service, target_id, id_type
+            )
+
+            if success:
+                results.append(
+                    {
+                        "id_type": id_type,
+                        "target_id": target_id,
+                        "success": True,
+                        "deleted_count": deleted_count,
+                        "deleted_vector_ids": vector_ids,
+                    }
+                )
+                total_deleted += deleted_count
+                successful += 1
+            else:
+                results.append(
+                    {
+                        "id_type": id_type,
+                        "target_id": target_id,
+                        "success": False,
+                        "deleted_count": 0,
+                        "error": error,
+                    }
+                )
+                failed += 1
+
+        logger.info(
+            "Batch deletion completed",
+            total_deletions=len(deletions),
+            successful=successful,
+            failed=failed,
+            total_vectors_deleted=total_deleted,
+        )
+
+        return success_response(
+            message=f"Batch deletion completed: {successful} successful, {failed} failed",
+            batch_deletion={
+                "total_deletions": len(deletions),
+                "successful": successful,
+                "failed": failed,
+                "total_vectors_deleted": total_deleted,
+                "results": results,
+            },
+        )
+
+    except Exception as e:
+        logger.error("Batch deletion failed", error=str(e), exc_info=True)
+        return error_response(
+            message="Batch deletion failed",
             details=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
